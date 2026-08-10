@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Where Are You From?</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background: #0d1b2a;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(244,162,97,0.06), transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(230,57,70,0.05), transparent 45%);
+    color: #eaf2fa;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    min-height: 100%;
+    display:flex;
+    flex-direction:column;
+  }
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 14px 18px; border-bottom: 1px solid rgba(234,242,250,0.08);
+    flex-wrap: wrap; gap:10px;
+  }
+  .brand{ display:flex; align-items:baseline; gap:10px; }
+  .brand .mark{ font-family:Georgia, 'Times New Roman', serif; font-weight:700; font-size:20px; }
+  .brand .sub{ font-size:11px; color:#7c93ac; text-transform:uppercase; letter-spacing:1.5px; }
+  .tabs{ display:flex; background: rgba(234,242,250,0.06); border-radius:10px; padding:3px; }
+  .tab{
+    border:none; background:transparent; color:#9db3c8;
+    padding:8px 16px; font-family:inherit; font-size:13px; font-weight:600;
+    border-radius:8px; cursor:pointer;
+  }
+  .tab.active{ background: #eaf2fa; color:#0d1b2a; }
+  main{ flex:1; display:flex; align-items:center; justify-content:center; padding: 24px 16px 40px; }
+
+  .card{
+    width:100%; max-width:420px;
+    background: rgba(234,242,250,0.04);
+    border:1px solid rgba(234,242,250,0.09);
+    border-radius:18px; padding: 32px 28px;
+  }
+  .card h1{ font-family:Georgia, 'Times New Roman', serif; font-weight:600; font-size:28px; margin: 0 0 6px; line-height:1.15; }
+  .card p.lede{ color:#9db3c8; font-size:14px; margin: 0 0 26px; line-height:1.5; }
+  label{
+    display:block; font-size:11px; text-transform:uppercase; letter-spacing:1.2px;
+    color:#7c93ac; margin: 18px 0 7px;
+  }
+  select, input[type=text]{
+    width:100%; padding: 13px 14px; background: #0d1b2a;
+    border: 1px solid rgba(234,242,250,0.16); border-radius:10px;
+    color:#eaf2fa; font-family:inherit; font-size:15px;
+  }
+  select{
+    appearance:none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%237c93ac' stroke-width='1.6' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position: right 14px center;
+  }
+  input[type=text]::placeholder{ color:#4c6178; }
+  select:focus, input:focus{ outline:2px solid #f4a261; outline-offset:1px; }
+  button.primary{
+    width:100%; margin-top:26px; padding: 14px; border:none; border-radius:10px;
+    background: linear-gradient(135deg, #f4a261, #e63946);
+    color:#0d1b2a; font-family: inherit; font-weight:700; font-size:15px; cursor:pointer;
+  }
+  button.primary:disabled{ opacity:0.35; cursor:not-allowed; }
+  button.primary:not(:disabled):active{ transform: scale(0.98); }
+  .formError{ color:#e63946; font-size:12.5px; margin-top:10px; text-align:center; min-height:1em; }
+  .confirm{ text-align:center; padding: 20px 0 4px; }
+  .confirm .big{ font-family:Georgia, 'Times New Roman', serif; font-size:22px; margin: 14px 0 6px; }
+  .confirm .place{ color:#f4a261; font-weight:600; }
+  .confirm .change{
+    margin-top:20px; background:none; border:1px solid rgba(234,242,250,0.18);
+    color:#9db3c8; padding: 10px 16px; border-radius:8px; font-family:inherit;
+    font-size:13px; cursor:pointer;
+  }
+  .checkmark{
+    width:52px;height:52px; border-radius:50%; background: rgba(244,162,97,0.15);
+    display:flex;align-items:center;justify-content:center; margin: 0 auto; font-size:24px;
+  }
+
+  .mapwrap{ width:100%; max-width: 900px; display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .maphead{ width:100%; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px; }
+  .maphead h2{ font-family:Georgia, 'Times New Roman', serif; font-weight:600; font-size:24px; margin:0; }
+  .stats{ display:flex; gap:22px; }
+  .stat{ text-align:right; }
+  .stat .n{ font-family:Georgia, 'Times New Roman', serif; font-size:26px; font-weight:700; color:#f4a261; line-height:1; }
+  .stat .l{ font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#7c93ac; margin-top:4px; }
+
+  .gridbox{
+    width:100%; background: rgba(234,242,250,0.03);
+    border:1px solid rgba(234,242,250,0.08); border-radius:16px; padding:18px;
+  }
+  #stateGrid{
+    display:grid;
+    grid-template-columns: repeat(13, 1fr);
+    grid-auto-rows: 1fr;
+    gap:4px;
+    aspect-ratio: 13/8;
+  }
+  .tile{
+    border-radius:5px; display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; color:#eaf2fa; background:#16273d;
+    cursor:default; position:relative; letter-spacing:0.3px;
+  }
+  @media (max-width:600px){ .tile{ font-size:8px; } }
+
+  .tilegridwrap{
+    max-width:100%; max-height:420px; overflow:auto;
+    padding:4px;
+  }
+  .tilegrid{
+    display:grid;
+    gap:3px;
+  }
+  .ctile{
+    border-radius:5px; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; color:#eaf2fa;
+    cursor:default;
+  }
+
+  .legend{ display:flex; align-items:center; gap:8px; font-size:11px; color:#7c93ac; }
+  .legend .bar{ width:160px;height:10px; border-radius:5px; background: linear-gradient(90deg, #1c3049, #f4a261, #e63946); }
+
+  .countypanel{
+    width:100%; background: rgba(234,242,250,0.03);
+    border:1px solid rgba(234,242,250,0.08); border-radius:14px; padding: 16px 18px;
+  }
+  .countypanel h3{ font-family:Georgia, 'Times New Roman', serif; font-weight:600; font-size:16px; margin:0 0 10px; }
+  .countyrow{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:7px 0; border-bottom:1px solid rgba(234,242,250,0.06); font-size:13px;
+  }
+  .countyrow:last-child{ border-bottom:none; }
+  .countyrow .cstate{ color:#7c93ac; font-size:11px; margin-left:6px; }
+  .countyrow .ccount{
+    color:#f4a261; font-weight:700; background: rgba(244,162,97,0.12);
+    padding:2px 9px; border-radius:20px; font-size:12px;
+  }
+  .empty{ color:#7c93ac; font-size:13px; padding: 10px 0; }
+  .footrow{ width:100%; display:flex; justify-content:flex-end; gap:10px; }
+  .downloadbtn{
+    background:none; border:1px solid rgba(244,162,97,0.5); color:#f4a261;
+    padding:8px 14px; border-radius:8px; font-family:inherit; font-size:12px; cursor:pointer;
+  }
+  .clearbtn{
+    background:none; border:1px solid rgba(230,57,70,0.4); color:#e88a92;
+    padding:8px 14px; border-radius:8px; font-family:inherit; font-size:12px; cursor:pointer;
+  }
+  .msg{ color:#7c93ac; font-size:13px; text-align:center; padding:10px; }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="mark">Home Counties</span>
+    <span class="sub">Live Class Map</span>
+  </div>
+  <div class="tabs">
+    <button class="tab active" id="tabStudent">I'm a Student</button>
+    <button class="tab" id="tabTeacher">Class Map</button>
+  </div>
+</div>
+
+<main>
+  <div class="card" id="studentView">
+    <div id="formStage">
+      <h1>Where are you from?</h1>
+      <p class="lede">Pick your home state and type your county. Your answer joins the class map instantly &mdash; no names attached.</p>
+      <label for="stateSelect">State</label>
+      <select id="stateSelect"></select>
+      <label for="countySelect">County</label>
+      <select id="countySelect" disabled><option value="">Select a state first</option></select>
+      <button class="primary" id="submitBtn" disabled>Add me to the map</button>
+      <div class="formError" id="formError"></div>
+    </div>
+    <div id="confirmStage" class="confirm hidden">
+      <div class="checkmark">📍</div>
+      <div class="big">You're on the map!</div>
+      <div>You picked <span class="place" id="confirmPlace"></span></div>
+      <button class="change" id="changeBtn">Change my answer</button>
+    </div>
+  </div>
+
+  <div class="mapwrap hidden" id="teacherView">
+    <div class="maphead">
+      <h2>Where the class is from</h2>
+      <div class="stats">
+        <div class="stat"><div class="n" id="statTotal">0</div><div class="l">Responses</div></div>
+        <div class="stat"><div class="n" id="statStates">0</div><div class="l">States</div></div>
+      </div>
+    </div>
+    <div class="gridbox"><div id="stateGrid"></div></div>
+    <div class="legend">Fewer <div class="bar"></div> More</div>
+    <div class="gridbox">
+      <h3 style="font-family:Georgia, 'Times New Roman', serif; font-weight:600; font-size:16px; margin:0 0 12px;">Counties, at a glance</h3>
+      <div class="tilegridwrap"><div id="countyTiles" class="tilegrid"><div class="empty">Waiting for responses&hellip;</div></div></div>
+    </div>
+    <div class="countypanel">
+      <h3>Counties, ranked</h3>
+      <div id="countyList"><div class="empty">Waiting for responses&hellip;</div></div>
+    </div>
+    <div class="footrow">
+      <button class="downloadbtn" id="downloadBtn">Download CSV</button>
+      <button class="clearbtn" id="clearBtn">Clear all responses</button>
+    </div>
+    <div class="msg" id="mapMsg"></div>
+  </div>
+</main>
+
+<script>
+(function(){
+  var STATE_NAMES = {"AL":"Alabama","AK":"Alaska","AZ":"Arizona","AR":"Arkansas","CA":"California","CO":"Colorado","CT":"Connecticut","DE":"Delaware","DC":"District of Columbia","FL":"Florida","GA":"Georgia","HI":"Hawaii","ID":"Idaho","IL":"Illinois","IN":"Indiana","IA":"Iowa","KS":"Kansas","KY":"Kentucky","LA":"Louisiana","ME":"Maine","MD":"Maryland","MA":"Massachusetts","MI":"Michigan","MN":"Minnesota","MS":"Mississippi","MO":"Missouri","MT":"Montana","NE":"Nebraska","NV":"Nevada","NH":"New Hampshire","NJ":"New Jersey","NM":"New Mexico","NY":"New York","NC":"North Carolina","ND":"North Dakota","OH":"Ohio","OK":"Oklahoma","OR":"Oregon","PA":"Pennsylvania","RI":"Rhode Island","SC":"South Carolina","SD":"South Dakota","TN":"Tennessee","TX":"Texas","UT":"Utah","VT":"Vermont","VA":"Virginia","WA":"Washington","WV":"West Virginia","WI":"Wisconsin","WY":"Wyoming"};
+
+var COUNTY_BY_STATE = {
+"AK":[["Aleutians East",80,8],["Aleutians West",82,0],["Anchorage",74,15],["Bethel",74,10],["Bristol Bay",77,11],["Denali",71,15],["Dillingham",75,9],["Fairbanks North Star",70,16],["Haines",75,23],["Hoonah-Angoon",76,24],["Juneau",77,23],["Kenai Peninsula",75,14],["Ketchikan Gateway",78,27],["Kodiak Island",78,13],["Kusilvak",73,8],["Lake and Peninsula",76,10],["Matanuska-Susitna",73,15],["Nome",70,8],["North Slope",65,13],["Northwest Arctic",67,10],["Petersburg",76,25],["Prince of Wales-Hyder",78,26],["Sitka",77,24],["Skagway",74,22],["Southeast Fairbanks",71,18],["Valdez-Cordova",73,18],["Wrangell",77,26],["Yakutat",75,20],["Yukon-Koyukuk",69,14]],
+"AL":[["Autauga",59,95],["Baldwin",65,93],["Barbour",61,99],["Bibb",57,94],["Blount",54,95],["Bullock",60,98],["Butler",61,96],["Calhoun",55,97],["Chambers",57,99],["Cherokee",53,98],["Chilton",58,95],["Choctaw",61,91],["Clarke",62,93],["Clay",56,97],["Cleburne",54,98],["Coffee",62,98],["Colbert",52,92],["Conecuh",62,95],["Coosa",57,96],["Covington",63,96],["Crenshaw",61,97],["Cullman",56,92],["Dale",62,99],["Dallas",60,94],["DeKalb",52,97],["Elmore",58,97],["Escambia",63,95],["Etowah",54,97],["Fayette",55,92],["Franklin",53,92],["Geneva",63,98],["Greene",58,92],["Hale",58,93],["Henry",64,101],["Houston",63,100],["Jackson",51,95],["Jefferson",56,94],["Lamar",55,91],["Lauderdale",51,92],["Lawrence",52,93],["Lee",58,99],["Limestone",51,94],["Lowndes",60,96],["Macon",59,97],["Madison",52,95],["Marengo",60,92],["Marion",54,92],["Marshall",53,96],["Mobile",65,92],["Monroe",62,94],["Montgomery",60,97],["Morgan",53,94],["Perry",59,94],["Pickens",57,91],["Pike",61,98],["Randolph",56,98],["Russell",59,100],["Shelby",56,95],["St. Clair",55,96],["Sumter",59,91],["Talladega",56,96],["Tallapoosa",57,97],["Tuscaloosa",57,93],["Walker",55,93],["Washington",63,92],["Wilcox",61,94],["Winston",54,93]],
+"AR":[["Arkansas",54,82],["Ashley",58,82],["Baxter",48,80],["Benton",48,75],["Boone",48,78],["Bradley",57,80],["Calhoun",57,79],["Carroll",48,76],["Chicot",57,83],["Clark",55,78],["Clay",46,84],["Cleburne",50,80],["Cleveland",55,80],["Columbia",58,78],["Conway",51,79],["Craighead",49,84],["Crawford",50,75],["Crittenden",50,85],["Cross",51,84],["Dallas",55,79],["Desha",55,83],["Drew",56,82],["Faulkner",51,80],["Franklin",50,76],["Fulton",47,81],["Garland",53,78],["Grant",54,80],["Greene",48,84],["Hempstead",56,76],["Hot Spring",54,78],["Howard",55,75],["Independence",49,82],["Izard",48,81],["Jackson",50,83],["Jefferson",54,81],["Johnson",50,77],["Lafayette",58,77],["Lawrence",48,83],["Lee",52,84],["Lincoln",55,81],["Little River",56,75],["Logan",51,76],["Lonoke",53,81],["Madison",49,76],["Marion",48,79],["Miller",57,76],["Mississippi",49,86],["Monroe",53,83],["Montgomery",53,76],["Nevada",56,77],["Newton",49,77],["Ouachita",56,78],["Perry",52,78],["Phillips",53,84],["Pike",55,76],["Poinsett",50,84],["Polk",54,75],["Pope",50,78],["Prairie",52,82],["Pulaski",53,80],["Randolph",47,83],["Saline",53,79],["Scott",52,75],["Searcy",49,79],["Sebastian",51,75],["Sevier",54,74],["Sharp",48,82],["St. Francis",51,85],["Stone",49,80],["Union",58,79],["Van Buren",50,79],["Washington",49,75],["White",51,81],["Woodruff",51,83],["Yell",52,77]],
+"AZ":[["Apache",48,35],["Cochise",59,33],["Coconino",46,29],["Gila",53,31],["Graham",56,33],["Greenlee",55,35],["La Paz",52,22],["Maricopa",54,26],["Mohave",45,24],["Navajo",48,33],["Pima",58,27],["Pinal",55,29],["Santa Cruz",60,29],["Yavapai",49,27],["Yuma",55,22]],
+"CA":[["Alameda",33,4],["Alpine",33,11],["Amador",33,9],["Butte",28,8],["Calaveras",34,9],["Colusa",29,6],["Contra Costa",34,5],["Del Norte",20,4],["El Dorado",32,9],["Fresno",39,10],["Glenn",28,6],["Humboldt",23,3],["Imperial",53,18],["Inyo",41,15],["Kern",44,11],["Kings",41,9],["Lake",29,4],["Lassen",26,11],["Los Angeles",47,12],["Madera",37,10],["Marin",32,3],["Mariposa",36,10],["Mendocino",28,3],["Merced",37,8],["Modoc",23,11],["Mono",35,13],["Monterey",39,5],["Napa",31,5],["Nevada",30,9],["Orange",50,12],["Placer",31,9],["Plumas",28,10],["Riverside",50,17],["Sacramento",32,7],["San Benito",38,6],["San Bernardino",47,17],["San Diego",52,15],["San Francisco",34,4],["San Joaquin",34,7],["San Luis Obispo",43,7],["San Mateo",35,4],["Santa Barbara",45,7],["Santa Clara",36,5],["Santa Cruz",36,4],["Shasta",24,8],["Sierra",29,10],["Siskiyou",22,7],["Solano",32,6],["Sonoma",31,3],["Stanislaus",35,7],["Sutter",30,7],["Tehama",26,6],["Trinity",24,5],["Tulare",41,12],["Tuolumne",34,10],["Ventura",46,10],["Yolo",31,6],["Yuba",30,8]],
+"CO":[["Adams",35,50],["Alamosa",42,45],["Arapahoe",36,50],["Archuleta",43,42],["Baca",44,53],["Bent",42,52],["Boulder",33,46],["Broomfield",35,48],["Chaffee",38,45],["Cheyenne",39,54],["Clear Creek",35,46],["Conejos",43,44],["Costilla",43,46],["Crowley",40,51],["Custer",41,46],["Delta",37,41],["Denver",34,47],["Dolores",41,38],["Douglas",37,48],["Eagle",35,44],["El Paso",38,49],["Elbert",37,50],["Fremont",39,46],["Garfield",35,41],["Gilpin",35,47],["Grand",34,45],["Gunnison",38,43],["Hinsdale",41,42],["Huerfano",42,47],["Jackson",32,45],["Jefferson",36,47],["Kiowa",40,53],["Kit Carson",37,54],["La Plata",43,40],["Lake",37,44],["Larimer",32,47],["Las Animas",44,50],["Lincoln",38,51],["Logan",33,53],["Mesa",37,39],["Mineral",42,42],["Moffat",32,40],["Montezuma",42,38],["Montrose",39,39],["Morgan",34,51],["Otero",42,51],["Ouray",40,40],["Park",37,46],["Phillips",33,55],["Pitkin",37,43],["Prowers",42,54],["Pueblo",41,49],["Rio Blanco",34,40],["Rio Grande",42,44],["Routt",32,43],["Saguache",40,44],["San Juan",41,41],["San Miguel",40,39],["Sedgwick",32,55],["Summit",35,45],["Teller",38,47],["Washington",35,52],["Weld",33,50],["Yuma",35,54]],
+"CT":[["Fairfield",24,123],["Hartford",23,125],["Litchfield",23,124],["Middlesex",24,126],["New Haven",24,125],["New London",24,127],["Tolland",23,126],["Windham",22,127]],
+"DC":[["District of Columbia",32,116]],
+"DE":[["Kent",33,121],["New Castle",32,120],["Sussex",34,122]],
+"FL":[["Alachua",67,108],["Baker",64,108],["Bay",66,99],["Bradford",66,109],["Brevard",70,114],["Broward",77,115],["Calhoun",65,100],["Charlotte",75,111],["Citrus",69,108],["Clay",65,110],["Collier",78,113],["Columbia",65,107],["DeSoto",74,111],["Dixie",67,106],["Duval",64,110],["Escambia",65,94],["Flagler",67,111],["Franklin",67,101],["Gadsden",65,101],["Gilchrist",67,107],["Glades",75,113],["Gulf",67,100],["Hamilton",64,106],["Hardee",73,111],["Hendry",76,113],["Hernando",70,109],["Highlands",74,112],["Hillsborough",72,109],["Holmes",64,98],["Indian River",72,114],["Jackson",64,100],["Jefferson",65,104],["Lafayette",66,106],["Lake",69,111],["Lee",76,111],["Leon",65,103],["Levy",68,107],["Liberty",66,101],["Madison",65,105],["Manatee",74,110],["Marion",68,109],["Martin",74,115],["Miami-Dade",79,116],["Monroe",80,114],["Nassau",63,109],["Okaloosa",65,96],["Okeechobee",73,114],["Orange",70,112],["Osceola",71,113],["Palm Beach",75,115],["Pasco",71,109],["Pinellas",72,108],["Polk",72,111],["Putnam",67,110],["Santa Rosa",65,95],["Sarasota",75,110],["Seminole",69,112],["St. Johns",65,111],["St. Lucie",73,115],["Sumter",70,110],["Suwannee",65,106],["Taylor",66,105],["Union",65,108],["Volusia",68,112],["Wakulla",66,102],["Walton",65,97],["Washington",65,99]],
+"GA":[["Appling",60,108],["Atkinson",62,106],["Bacon",62,107],["Baker",62,102],["Baldwin",57,104],["Banks",59,96],["Barrow",53,103],["Bartow",53,100],["Ben Hill",60,105],["Berrien",62,105],["Bibb",57,103],["Bleckley",58,104],["Brantley",62,109],["Brooks",64,105],["Bryan",58,109],["Bulloch",57,108],["Burke",56,108],["Butts",56,102],["Calhoun",61,101],["Camden",62,110],["Candler",57,109],["Carroll",53,97],["Catoosa",51,97],["Charlton",63,108],["Chatham",59,111],["Chattahoochee",59,101],["Chattooga",54,96],["Cherokee",52,100],["Clarke",53,104],["Clay",63,99],["Clayton",56,101],["Clinch",63,107],["Cobb",58,98],["Coffee",61,106],["Colquitt",64,103],["Columbia",54,107],["Cook",64,104],["Coweta",56,100],["Crawford",57,98],["Crisp",60,104],["Dade",50,97],["Dawson",50,103],["DeKalb",54,102],["Decatur",64,102],["Dodge",59,105],["Dooly",59,103],["Dougherty",61,102],["Douglas",54,100],["Early",62,101],["Echols",63,106],["Effingham",58,110],["Elbert",51,104],["Emanuel",57,107],["Evans",58,108],["Fannin",51,101],["Fayette",52,98],["Floyd",53,99],["Forsyth",56,105],["Franklin",52,104],["Fulton",54,101],["Gilmer",50,101],["Glascock",55,106],["Glynn",61,110],["Gordon",52,99],["Grady",63,103],["Greene",55,104],["Gwinnett",53,102],["Habersham",49,106],["Hall",51,103],["Hancock",55,105],["Haralson",54,99],["Harris",62,97],["Hart",52,105],["Heard",56,99],["Henry",55,102],["Houston",57,105],["Irwin",62,104],["Jackson",51,106],["Jasper",54,105],["Jeff Davis",60,107],["Jefferson",56,107],["Jenkins",55,108],["Johnson",57,106],["Jones",56,104],["Lamar",55,101],["Lanier",61,105],["Laurens",61,107],["Lee",60,103],["Liberty",59,110],["Lincoln",53,106],["Long",59,108],["Lowndes",63,105],["Lumpkin",49,101],["Macon",58,102],["Madison",52,103],["Marion",60,99],["McDuffie",54,106],["McIntosh",60,110],["Meriwether",57,101],["Miller",63,101],["Mitchell",62,103],["Monroe",56,103],["Montgomery",61,109],["Morgan",54,104],["Murray",51,100],["Muscogee",62,96],["Newton",55,103],["Oconee",53,105],["Oglethorpe",49,111],["Paulding",55,99],["Peach",58,103],["Pickens",52,101],["Pierce",61,108],["Pike",55,100],["Polk",55,98],["Pulaski",59,104],["Putnam",59,109],["Quitman",60,100],["Rabun",47,102],["Randolph",61,100],["Richmond",53,109],["Rockdale",53,101],["Schley",59,102],["Screven",56,109],["Seminole",62,100],["Spalding",59,99],["Stephens",57,110],["Stewart",58,100],["Sumter",60,102],["Talbot",57,100],["Taliaferro",55,107],["Tattnall",58,107],["Taylor",57,102],["Telfair",60,106],["Terrell",64,99],["Thomas",63,104],["Tift",61,104],["Toombs",59,107],["Towns",48,100],["Treutlen",62,111],["Troup",59,98],["Turner",61,103],["Twiggs",58,105],["Union",52,102],["Upson",58,101],["Walker",51,98],["Walton",54,103],["Ware",62,108],["Warren",53,108],["Washington",56,106],["Wayne",60,109],["Webster",60,101],["Wheeler",59,106],["White",51,102],["Whitfield",51,99],["Wilcox",64,107],["Wilkes",49,108],["Wilkinson",58,106],["Worth",63,102]],
+"HI":[["Hawaii",80,44],["Honolulu",74,37],["Kalawao",75,40],["Kauai",72,32],["Maui",76,41]],
+"IA":[["Adair",31,74],["Adams",32,73],["Allamakee",25,81],["Appanoose",33,78],["Audubon",30,73],["Benton",29,80],["Black Hawk",27,79],["Boone",29,75],["Bremer",26,79],["Buchanan",27,80],["Buena Vista",27,72],["Butler",27,78],["Calhoun",28,73],["Carroll",29,73],["Cass",31,73],["Cedar",30,82],["Cerro Gordo",25,77],["Cherokee",27,71],["Chickasaw",25,79],["Clarke",32,75],["Clay",26,72],["Clayton",26,81],["Clinton",29,83],["Crawford",29,72],["Dallas",30,75],["Davis",33,79],["Decatur",33,75],["Delaware",27,81],["Des Moines",32,82],["Dickinson",25,72],["Dubuque",27,82],["Emmet",25,73],["Fayette",26,80],["Floyd",24,77],["Franklin",27,77],["Fremont",33,71],["Greene",29,74],["Grundy",28,78],["Guthrie",30,74],["Hamilton",28,76],["Hancock",25,75],["Hardin",28,77],["Harrison",30,71],["Henry",32,81],["Howard",24,79],["Humboldt",27,74],["Ida",28,71],["Iowa",30,80],["Jackson",27,83],["Jasper",30,77],["Jefferson",32,80],["Johnson",30,81],["Jones",28,82],["Keokuk",31,79],["Kossuth",25,74],["Lee",33,81],["Linn",29,81],["Louisa",31,82],["Lucas",32,77],["Lyon",25,70],["Madison",31,75],["Mahaska",31,78],["Marion",31,77],["Marshall",29,77],["Mills",32,71],["Mitchell",25,78],["Monona",29,70],["Monroe",32,78],["Montgomery",32,72],["Muscatine",31,81],["O'Brien",26,71],["Osceola",25,71],["Page",33,72],["Palo Alto",26,73],["Plymouth",27,70],["Pocahontas",27,73],["Polk",30,76],["Pottawattamie",31,71],["Poweshiek",30,78],["Ringgold",33,74],["Sac",28,72],["Scott",30,83],["Shelby",30,72],["Sioux",26,70],["Story",29,76],["Tama",29,78],["Taylor",33,73],["Union",32,74],["Van Buren",33,80],["Wapello",32,79],["Warren",31,76],["Washington",31,80],["Wayne",33,77],["Webster",28,74],["Winnebago",24,74],["Winneshiek",25,80],["Woodbury",28,70],["Worth",26,76],["Wright",27,75]],
+"ID":[["Ada",19,23],["Adams",15,24],["Bannock",24,32],["Bear Lake",25,34],["Benewah",7,25],["Bingham",22,32],["Blaine",21,28],["Boise",18,25],["Bonner",4,26],["Bonneville",22,34],["Boundary",2,26],["Butte",20,30],["Camas",20,26],["Canyon",19,22],["Caribou",24,33],["Cassia",24,28],["Clark",18,32],["Clearwater",9,27],["Custer",18,28],["Elmore",20,25],["Franklin",25,33],["Fremont",19,34],["Gem",17,23],["Gooding",22,26],["Idaho",12,26],["Jefferson",20,32],["Jerome",23,27],["Kootenai",6,25],["Latah",8,24],["Lemhi",16,29],["Lewis",10,25],["Lincoln",22,28],["Madison",20,34],["Minidoka",22,29],["Nez Perce",10,24],["Oneida",25,31],["Owyhee",22,23],["Payette",17,22],["Power",23,30],["Shoshone",7,26],["Teton",21,35],["Twin Falls",24,26],["Valley",15,25],["Washington",16,23]],
+"IL":[["Adams",35,82],["Alexander",44,87],["Bond",39,87],["Boone",27,87],["Brown",36,82],["Bureau",30,86],["Calhoun",39,83],["Carroll",28,85],["Cass",35,84],["Champaign",34,89],["Christian",37,87],["Clark",37,90],["Clay",38,88],["Clinton",39,86],["Coles",36,87],["Cook",29,90],["Crawford",36,91],["Cumberland",37,89],["De Witt",34,88],["DeKalb",29,87],["Douglas",36,89],["DuPage",28,88],["Edgar",36,90],["Edwards",40,90],["Effingham",38,89],["Fayette",38,87],["Ford",33,89],["Franklin",42,88],["Fulton",34,84],["Gallatin",42,90],["Greene",37,84],["Grundy",31,88],["Hamilton",41,89],["Hancock",33,83],["Hardin",43,91],["Henderson",33,82],["Henry",31,84],["Iroquois",32,90],["Jackson",42,86],["Jasper",38,90],["Jefferson",41,88],["Jersey",38,84],["Jo Daviess",27,84],["Johnson",42,87],["Kane",29,88],["Kankakee",31,90],["Kendall",30,88],["Knox",32,84],["LaSalle",31,87],["Lake",27,89],["Lawrence",39,91],["Lee",29,86],["Livingston",32,88],["Logan",35,86],["Macon",35,87],["Macoupin",38,85],["Madison",39,85],["Marion",39,88],["Marshall",32,86],["Mason",34,85],["Massac",44,89],["McDonough",34,83],["McHenry",27,88],["McLean",33,88],["Menard",35,85],["Mercer",31,83],["Monroe",41,85],["Montgomery",38,86],["Morgan",35,83],["Moultrie",36,88],["Ogle",28,86],["Peoria",33,85],["Perry",44,84],["Piatt",35,88],["Pike",37,83],["Pope",43,89],["Pulaski",44,88],["Putnam",31,86],["Randolph",41,86],["Richland",39,90],["Rock Island",29,82],["Saline",42,89],["Sangamon",36,86],["Schuyler",34,82],["Scott",36,84],["Shelby",37,88],["St. Clair",40,85],["Stark",32,85],["Stephenson",27,85],["Tazewell",33,86],["Union",43,87],["Vermilion",35,89],["Wabash",40,91],["Warren",32,83],["Washington",40,87],["Wayne",40,89],["White",40,88],["Whiteside",29,85],["Will",30,89],["Williamson",41,87],["Winnebago",27,86],["Woodford",32,87]],
+"IN":[["Adams",32,97],["Allen",31,97],["Bartholomew",31,89],["Benton",33,91],["Blackford",33,96],["Boone",34,94],["Brown",37,94],["Carroll",29,89],["Cass",31,92],["Clark",38,96],["Clay",36,92],["Clinton",33,93],["Crawford",40,94],["Daviess",35,90],["DeKalb",30,97],["Dearborn",30,105],["Decatur",36,96],["Delaware",35,96],["Dubois",40,93],["Elkhart",29,94],["Fayette",31,100],["Floyd",40,95],["Fountain",34,92],["Franklin",36,97],["Fulton",31,94],["Gibson",41,92],["Grant",33,95],["Greene",38,93],["Hamilton",35,95],["Hancock",36,93],["Harrison",39,95],["Hendricks",35,93],["Henry",34,96],["Howard",32,93],["Huntington",31,96],["Jackson",38,95],["Jasper",29,91],["Jay",33,97],["Jefferson",37,95],["Jennings",37,96],["Johnson",36,95],["Knox",39,92],["Kosciusko",30,95],["LaGrange",29,95],["LaPorte",28,92],["Lake",30,91],["Lawrence",38,94],["Madison",34,95],["Marion",34,93],["Marshall",30,94],["Martin",39,93],["Miami",32,94],["Monroe",30,87],["Montgomery",35,91],["Morgan",36,94],["Newton",32,91],["Noble",30,96],["Ohio",37,98],["Orange",39,94],["Owen",37,93],["Parke",35,92],["Perry",41,94],["Pike",40,92],["Porter",30,92],["Posey",41,91],["Pulaski",31,93],["Putnam",37,92],["Randolph",29,92],["Ripley",37,97],["Rush",33,98],["Scott",39,96],["Shelby",35,94],["Spencer",38,92],["St. Joseph",29,93],["Starke",30,93],["Steuben",29,96],["Sullivan",38,91],["Switzerland",40,96],["Tippecanoe",33,92],["Tipton",33,94],["Union",28,90],["Vanderburgh",39,89],["Vermillion",34,90],["Vigo",37,91],["Wabash",32,95],["Warren",34,91],["Warrick",42,92],["Washington",44,92],["Wayne",34,97],["Wells",32,96],["White",32,92],["Whitley",31,95]],
+"KS":[["Allen",43,72],["Anderson",41,72],["Atchison",37,72],["Barber",45,63],["Barton",40,63],["Bourbon",43,73],["Brown",36,71],["Butler",43,68],["Chase",41,69],["Chautauqua",45,69],["Cherokee",45,73],["Cheyenne",36,56],["Clark",44,60],["Clay",38,67],["Cloud",37,66],["Coffey",41,71],["Comanche",45,62],["Cowley",45,68],["Crawford",44,73],["Decatur",36,59],["Dickinson",39,67],["Doniphan",36,72],["Douglas",39,72],["Edwards",42,62],["Elk",44,69],["Ellis",39,62],["Ellsworth",40,65],["Finney",42,58],["Ford",43,60],["Franklin",40,72],["Geary",39,68],["Gove",39,59],["Graham",38,60],["Grant",43,57],["Gray",43,59],["Greeley",40,56],["Greenwood",43,70],["Hamilton",42,55],["Harper",45,65],["Harvey",42,66],["Haskell",43,58],["Hodgeman",42,60],["Jackson",38,71],["Jefferson",38,72],["Jewell",36,65],["Johnson",37,71],["Kearny",42,57],["Kingman",44,65],["Kiowa",43,62],["Labette",45,72],["Lane",40,59],["Leavenworth",38,73],["Lincoln",39,65],["Linn",41,73],["Logan",39,57],["Lyon",41,70],["Marion",41,67],["Marshall",36,69],["McPherson",41,66],["Meade",44,59],["Miami",40,73],["Mitchell",38,65],["Montgomery",45,71],["Morris",40,68],["Morton",44,55],["Nemaha",36,70],["Neosho",44,72],["Ness",40,60],["Norton",36,60],["Osage",40,71],["Osborne",38,63],["Ottawa",38,66],["Pawnee",41,62],["Phillips",36,62],["Pottawatomie",38,69],["Pratt",43,63],["Rawlins",36,58],["Reno",42,65],["Republic",36,66],["Rice",41,65],["Riley",38,68],["Rooks",38,62],["Rush",40,62],["Russell",39,63],["Saline",40,66],["Scott",40,58],["Sedgwick",43,66],["Seward",44,58],["Shawnee",39,71],["Sheridan",37,59],["Sherman",37,56],["Smith",36,63],["Stafford",42,63],["Stanton",43,55],["Stevens",44,57],["Sumner",45,66],["Thomas",37,58],["Trego",39,60],["Wabaunsee",39,70],["Wallace",39,56],["Washington",36,67],["Wichita",40,57],["Wilson",44,71],["Woodson",43,71],["Wyandotte",39,73]],
+"KY":[["Adair",45,96],["Allen",45,94],["Anderson",33,87],["Ballard",46,87],["Barren",45,95],["Bath",40,101],["Bell",44,102],["Boone",33,100],["Bourbon",38,99],["Boyd",39,104],["Boyle",42,98],["Bracken",38,100],["Breathitt",53,113],["Breckinridge",42,94],["Bullitt",50,88],["Butler",44,94],["Caldwell",45,90],["Calloway",48,89],["Campbell",36,98],["Carlisle",45,88],["Carroll",38,97],["Carter",37,106],["Casey",43,98],["Christian",50,87],["Clark",34,106],["Clay",43,101],["Clinton",45,99],["Crittenden",43,90],["Cumberland",44,96],["Daviess",41,93],["Edmonson",43,95],["Elliott",33,111],["Estill",31,111],["Fayette",31,91],["Fleming",39,101],["Floyd",41,104],["Franklin",40,98],["Fulton",46,88],["Gallatin",37,99],["Garrard",48,93],["Grant",28,89],["Graves",46,89],["Grayson",43,94],["Green",42,97],["Greenup",36,104],["Hancock",42,93],["Hardin",42,96],["Harlan",44,103],["Harrison",38,98],["Hart",43,96],["Henderson",41,90],["Henry",39,97],["Hickman",49,85],["Hopkins",44,91],["Jackson",41,100],["Jefferson",41,96],["Jessamine",41,99],["Johnson",40,103],["Kenton",32,105],["Knott",42,103],["Knox",43,100],["Larue",41,95],["Laurel",42,99],["Lawrence",40,104],["Lee",41,101],["Leslie",43,103],["Letcher",50,111],["Lewis",38,102],["Lincoln",41,98],["Livingston",44,90],["Logan",44,93],["Lyon",46,90],["Madison",40,99],["Magoffin",41,103],["Marion",41,97],["Marshall",43,88],["Martin",39,103],["Mason",33,105],["McCracken",45,89],["McCreary",45,100],["McLean",43,92],["Meade",42,95],["Menifee",39,102],["Mercer",51,89],["Metcalfe",44,97],["Monroe",45,97],["Montgomery",29,112],["Morgan",43,102],["Muhlenberg",45,92],["Nelson",34,87],["Nicholas",39,100],["Ohio",43,93],["Oldham",28,87],["Owen",39,98],["Owsley",42,101],["Pendleton",37,102],["Perry",41,102],["Pike",41,105],["Powell",40,100],["Pulaski",43,99],["Robertson",42,102],["Rockcastle",42,100],["Rowan",38,101],["Russell",44,98],["Scott",39,99],["Shelby",40,97],["Simpson",46,93],["Spencer",44,100],["Taylor",43,97],["Todd",45,93],["Trigg",45,91],["Trimble",33,90],["Union",42,91],["Warren",44,95],["Washington",32,89],["Wayne",44,99],["Webster",40,86],["Whitley",44,101],["Wolfe",40,102],["Woodford",30,90]],
+"LA":[["Acadia",67,80],["Allen",66,79],["Ascension",67,84],["Assumption",68,84],["Avoyelles",65,81],["Beauregard",66,77],["Bienville",61,78],["Bossier",58,76],["Caddo",60,76],["Calcasieu",67,77],["Caldwell",61,81],["Cameron",69,78],["Catahoula",62,81],["Claiborne",59,78],["Concordia",63,82],["De Soto",62,76],["East Baton Rouge",66,84],["East Carroll",59,83],["East Feliciana",65,84],["Evangeline",66,80],["Franklin",61,82],["Grant",63,80],["Iberia",68,82],["Iberville",67,83],["Jackson",61,79],["Jefferson",69,87],["Jefferson Davis",67,79],["LaSalle",63,81],["Lafayette",67,81],["Lafourche",69,86],["Lincoln",60,79],["Livingston",66,85],["Madison",60,83],["Morehouse",59,81],["Natchitoches",63,78],["Orleans",68,87],["Ouachita",60,81],["Plaquemines",70,88],["Pointe Coupee",66,82],["Rapides",64,80],["Red River",61,77],["Richland",60,82],["Sabine",63,77],["St. Bernard",68,88],["St. Charles",68,86],["St. Helena",65,85],["St. James",68,85],["St. John the Baptist",67,86],["St. Landry",66,81],["St. Martin",69,81],["St. Mary",69,83],["St. Tammany",66,87],["Tangipahoa",66,86],["Tensas",61,83],["Terrebonne",70,85],["Union",59,80],["Vermilion",69,80],["Vernon",65,78],["Washington",65,87],["Webster",59,77],["West Baton Rouge",66,83],["West Carroll",59,82],["West Feliciana",65,83],["Winn",62,79]],
+"MA":[["Barnstable",22,131],["Berkshire",21,124],["Bristol",22,129],["Dukes",23,131],["Essex",19,129],["Franklin",20,125],["Hampden",22,125],["Hampshire",21,125],["Middlesex",20,128],["Nantucket",23,132],["Norfolk",21,129],["Plymouth",21,130],["Suffolk",20,129],["Worcester",21,127]],
+"MD":[["Allegany",33,113],["Anne Arundel",31,115],["Baltimore",33,118],["Baltimore",31,120],["Calvert",34,119],["Caroline",34,120],["Carroll",32,117],["Cecil",32,119],["Charles",34,121],["Dorchester",35,120],["Frederick",30,114],["Garrett",34,111],["Harford",31,118],["Howard",33,117],["Kent",33,119],["Montgomery",34,117],["Prince George's",38,122],["Queen Anne's",33,120],["Somerset",36,121],["St. Mary's",36,119],["Talbot",35,119],["Washington",33,115],["Wicomico",35,121],["Worcester",36,122]],
+"ME":[["Androscoggin",14,129],["Aroostook",5,130],["Cumberland",15,129],["Franklin",12,128],["Hancock",11,133],["Kennebec",13,130],["Knox",13,132],["Lincoln",14,131],["Oxford",13,128],["Penobscot",9,131],["Piscataquis",8,130],["Sagadahoc",14,130],["Somerset",10,129],["Waldo",12,131],["Washington",10,134],["York",16,129]],
+"MI":[["Alcona",18,99],["Alger",14,91],["Allegan",26,94],["Alpena",17,98],["Antrim",18,95],["Arenac",21,98],["Baraga",13,87],["Barry",26,95],["Bay",22,98],["Benzie",19,93],["Berrien",28,93],["Branch",28,96],["Calhoun",26,96],["Cass",28,94],["Charlevoix",17,95],["Cheboygan",16,96],["Chippewa",14,96],["Clare",21,96],["Clinton",24,97],["Crawford",19,96],["Delta",15,91],["Dickinson",15,88],["Eaton",26,97],["Emmet",16,95],["Genesee",24,99],["Gladwin",21,97],["Gogebic",14,84],["Grand Traverse",19,94],["Gratiot",23,97],["Hillsdale",28,97],["Houghton",13,86],["Huron",21,100],["Ingham",25,98],["Ionia",25,96],["Iosco",20,99],["Iron",15,87],["Isabella",22,96],["Jackson",27,98],["Kalamazoo",27,95],["Kalkaska",19,95],["Kent",24,95],["Keweenaw",10,87],["Lake",21,94],["Lapeer",24,100],["Leelanau",18,93],["Lenawee",28,99],["Livingston",25,99],["Luce",13,93],["Mackinac",14,95],["Macomb",25,101],["Manistee",20,93],["Marquette",14,89],["Mason",21,93],["Mecosta",22,95],["Menominee",17,89],["Midland",22,97],["Missaukee",20,95],["Monroe",27,100],["Montcalm",23,96],["Montmorency",18,97],["Muskegon",24,93],["Newaygo",23,94],["Oakland",25,100],["Oceana",23,93],["Ogemaw",20,97],["Ontonagon",13,85],["Osceola",21,95],["Oscoda",19,97],["Otsego",18,96],["Ottawa",25,94],["Presque Isle",16,98],["Roscommon",20,96],["Saginaw",23,98],["Sanilac",22,101],["Schoolcraft",14,92],["Shiawassee",24,98],["St. Clair",24,101],["St. Joseph",28,95],["Tuscola",22,99],["Van Buren",27,94],["Washtenaw",26,99],["Wayne",26,100],["Wexford",20,94]],
+"MN":[["Aitkin",14,76],["Anoka",17,77],["Becker",13,71],["Beltrami",10,72],["Benton",17,75],["Big Stone",18,69],["Blue Earth",22,75],["Brown",22,73],["Carlton",14,78],["Carver",20,75],["Cass",13,74],["Chippewa",19,71],["Chisago",18,77],["Clay",13,69],["Clearwater",11,71],["Cook",10,82],["Cottonwood",23,72],["Crow Wing",14,74],["Dakota",20,77],["Dodge",22,77],["Douglas",16,71],["Faribault",24,75],["Fillmore",23,79],["Freeborn",24,76],["Goodhue",21,78],["Grant",16,70],["Hennepin",19,76],["Houston",23,81],["Hubbard",12,73],["Isanti",17,76],["Itasca",11,75],["Jackson",24,72],["Kanabec",16,76],["Kandiyohi",19,72],["Kittson",7,68],["Koochiching",9,75],["Lac qui Parle",19,70],["Lake",11,80],["Lake of the Woods",7,72],["Le Sueur",21,75],["Lincoln",21,69],["Lyon",21,70],["Mahnomen",12,71],["Marshall",8,69],["Martin",24,73],["McLeod",21,73],["Meeker",19,73],["Mille Lacs",16,75],["Morrison",16,74],["Mower",24,78],["Murray",22,71],["Nicollet",20,74],["Nobles",24,71],["Norman",12,69],["Olmsted",22,78],["Otter Tail",15,71],["Pennington",9,70],["Pine",16,77],["Pipestone",22,70],["Polk",10,69],["Pope",17,71],["Ramsey",18,76],["Red Lake",10,70],["Redwood",21,72],["Renville",20,73],["Rice",21,76],["Rock",24,70],["Roseau",7,71],["Scott",20,76],["Sherburne",18,75],["Sibley",21,74],["St. Louis",11,78],["Stearns",18,73],["Steele",23,76],["Stevens",17,70],["Swift",18,71],["Todd",16,73],["Traverse",17,69],["Wabasha",21,79],["Wadena",14,72],["Waseca",22,76],["Washington",19,77],["Watonwan",23,73],["Wilkin",15,69],["Winona",23,80],["Wright",19,75],["Yellow Medicine",20,70]],
+"MO":[["Adair",35,78],["Andrew",35,73],["Atchison",34,72],["Audrain",38,80],["Barry",46,76],["Barton",44,74],["Bates",41,74],["Benton",41,77],["Bollinger",44,85],["Boone",39,79],["Buchanan",37,73],["Butler",47,84],["Caldwell",37,75],["Callaway",39,80],["Camden",42,78],["Cape Girardeau",45,85],["Carroll",37,76],["Carter",45,83],["Cass",40,74],["Cedar",43,76],["Chariton",37,78],["Christian",45,77],["Clark",34,81],["Clay",38,74],["Clinton",37,74],["Cole",40,78],["Cooper",39,78],["Crawford",42,82],["Dade",44,76],["Dallas",43,78],["Daviess",36,75],["DeKalb",36,74],["Dent",43,82],["Douglas",45,79],["Dunklin",47,85],["Franklin",41,82],["Gasconade",41,81],["Gentry",35,74],["Greene",44,77],["Grundy",35,76],["Harrison",34,75],["Henry",41,76],["Hickory",42,77],["Holt",35,72],["Howard",38,78],["Howell",46,81],["Iron",43,83],["Jackson",39,74],["Jasper",45,74],["Jefferson",41,84],["Johnson",40,76],["Knox",35,80],["Laclede",43,79],["Lafayette",39,76],["Lawrence",45,76],["Lewis",35,81],["Lincoln",38,83],["Linn",36,77],["Livingston",36,76],["Macon",36,79],["Madison",43,85],["Maries",41,80],["Marion",36,81],["McDonald",47,74],["Mercer",34,76],["Miller",41,79],["Mississippi",45,87],["Moniteau",40,79],["Monroe",37,80],["Montgomery",39,81],["Morgan",41,78],["New Madrid",46,86],["Newton",46,74],["Nodaway",34,73],["Oregon",46,82],["Osage",40,81],["Ozark",46,79],["Pemiscot",47,86],["Perry",43,86],["Pettis",40,77],["Phelps",42,81],["Pike",37,82],["Platte",36,73],["Polk",43,77],["Pulaski",43,80],["Putnam",34,77],["Ralls",37,81],["Randolph",37,79],["Ray",38,75],["Reynolds",44,83],["Ripley",46,83],["Saline",38,77],["Schuyler",34,79],["Scotland",34,80],["Scott",44,86],["Shannon",45,82],["Shelby",36,80],["St. Charles",38,82],["St. Clair",42,76],["St. Francois",42,84],["St. Louis",39,84],["St. Louis",40,84],["Ste. Genevieve",42,85],["Stoddard",45,86],["Stone",46,77],["Sullivan",35,77],["Taney",46,78],["Texas",44,80],["Vernon",43,74],["Warren",39,82],["Washington",42,83],["Wayne",45,84],["Webster",44,78],["Worth",34,74],["Wright",44,79]],
+"MS":[["Adams",63,83],["Alcorn",53,91],["Amite",64,84],["Attala",58,87],["Benton",52,88],["Bolivar",56,84],["Calhoun",55,88],["Carroll",57,86],["Chickasaw",55,89],["Choctaw",57,88],["Claiborne",61,84],["Clarke",61,90],["Clay",57,89],["Coahoma",54,84],["Copiah",62,85],["Covington",62,88],["DeSoto",52,86],["Forrest",63,88],["Franklin",63,84],["George",65,90],["Greene",64,90],["Grenada",55,87],["Hancock",66,88],["Harrison",66,89],["Hinds",60,85],["Holmes",58,86],["Humphreys",58,85],["Issaquena",58,83],["Itawamba",53,90],["Jackson",66,91],["Jasper",61,89],["Jefferson",62,84],["Jefferson Davis",63,87],["Jones",62,89],["Kemper",59,90],["Lafayette",53,87],["Lamar",64,88],["Lauderdale",60,90],["Lawrence",63,86],["Leake",59,88],["Lee",54,90],["Leflore",55,84],["Lincoln",63,85],["Lowndes",56,90],["Madison",59,86],["Marion",64,87],["Marshall",52,87],["Monroe",55,90],["Montgomery",56,87],["Neshoba",59,89],["Newton",60,89],["Noxubee",57,90],["Oktibbeha",56,89],["Panola",55,85],["Pearl River",65,88],["Perry",64,89],["Pike",64,86],["Pontotoc",54,89],["Prentiss",52,90],["Quitman",54,85],["Rankin",60,87],["Scott",60,88],["Sharkey",59,84],["Simpson",62,87],["Smith",61,88],["Stone",65,89],["Sunflower",56,85],["Tallahatchie",55,86],["Tate",53,86],["Tippah",52,89],["Tishomingo",52,91],["Tunica",53,85],["Union",53,89],["Walthall",65,86],["Warren",60,84],["Washington",57,84],["Wayne",62,90],["Webster",56,88],["Wilkinson",64,83],["Winston",58,89],["Yalobusha",54,86],["Yazoo",59,85]],
+"MT":[["Beaverhead",15,32],["Big Horn",16,44],["Blaine",6,42],["Broadwater",12,35],["Carbon",17,40],["Carter",17,51],["Cascade",9,36],["Chouteau",8,39],["Custer",14,49],["Daniels",6,50],["Dawson",11,50],["Deer Lodge",12,32],["Fallon",14,51],["Fergus",10,41],["Flathead",5,31],["Gallatin",15,36],["Garfield",11,46],["Glacier",4,34],["Golden Valley",13,41],["Granite",11,31],["Hill",5,40],["Jefferson",13,34],["Judith Basin",10,39],["Lake",7,31],["Lewis and Clark",9,34],["Liberty",5,38],["Lincoln",4,28],["Madison",15,34],["McCone",10,49],["Meagher",12,37],["Mineral",8,28],["Missoula",9,31],["Musselshell",13,42],["Park",15,37],["Petroleum",11,43],["Phillips",7,44],["Pondera",6,35],["Powder River",17,48],["Powell",10,33],["Prairie",12,49],["Ravalli",12,30],["Richland",9,51],["Roosevelt",8,51],["Rosebud",14,46],["Sanders",6,28],["Sheridan",6,52],["Silver Bow",13,33],["Stillwater",15,40],["Sweet Grass",14,39],["Teton",7,35],["Toole",5,36],["Treasure",14,45],["Valley",7,47],["Wheatland",12,39],["Wibaux",12,52],["Yellowstone",14,42]],
+"NC":[["Alamance",47,112],["Alexander",46,109],["Alleghany",44,108],["Anson",49,112],["Ashe",43,106],["Avery",47,108],["Beaufort",46,121],["Bertie",45,120],["Bladen",49,116],["Brunswick",51,117],["Buncombe",46,105],["Burke",47,107],["Cabarrus",47,110],["Caldwell",46,108],["Camden",43,122],["Carteret",47,121],["Caswell",43,112],["Catawba",48,110],["Chatham",46,114],["Cherokee",49,100],["Chowan",44,119],["Clay",50,102],["Cleveland",48,108],["Columbus",50,116],["Craven",47,119],["Cumberland",48,115],["Currituck",42,121],["Dare",44,122],["Davidson",46,111],["Davie",46,110],["Duplin",48,117],["Durham",44,113],["Edgecombe",44,118],["Forsyth",45,111],["Franklin",44,116],["Gaston",48,109],["Gates",42,120],["Graham",49,102],["Granville",44,115],["Greene",45,117],["Guilford",45,112],["Halifax",43,117],["Harnett",47,115],["Haywood",48,104],["Henderson",48,105],["Hertford",43,119],["Hoke",48,114],["Hyde",45,121],["Iredell",45,108],["Jackson",49,104],["Johnston",46,116],["Jones",46,118],["Lee",46,113],["Lenoir",47,118],["Lincoln",47,109],["Macon",49,103],["Madison",50,107],["Martin",45,119],["McDowell",47,106],["Mecklenburg",49,110],["Mitchell",46,106],["Montgomery",48,112],["Moore",47,113],["Nash",46,115],["New Hanover",50,118],["Northampton",44,117],["Onslow",48,119],["Orange",45,114],["Pamlico",46,120],["Pasquotank",41,120],["Pender",49,118],["Perquimans",43,120],["Person",44,114],["Pitt",45,118],["Polk",48,106],["Randolph",46,112],["Richmond",48,113],["Robeson",49,115],["Rockingham",44,112],["Rowan",47,111],["Rutherford",48,107],["Sampson",48,116],["Scotland",49,113],["Stanly",48,111],["Stokes",44,111],["Surry",44,110],["Swain",48,103],["Transylvania",49,105],["Tyrrell",44,121],["Union",52,113],["Vance",43,115],["Wake",47,114],["Warren",43,116],["Washington",44,120],["Watauga",46,107],["Wayne",46,117],["Wilkes",44,107],["Wilson",47,116],["Yadkin",45,110],["Yancey",47,105]],
+"ND":[["Adams",15,55],["Barnes",13,66],["Benson",9,63],["Billings",12,54],["Bottineau",7,60],["Bowman",15,53],["Burke",7,56],["Burleigh",13,60],["Cass",13,67],["Cavalier",7,65],["Dickey",16,64],["Divide",6,54],["Dunn",11,56],["Eddy",10,64],["Emmons",15,61],["Foster",11,64],["Golden Valley",12,53],["Grand Forks",10,67],["Grant",15,57],["Griggs",11,65],["Hettinger",14,56],["Kidder",13,62],["LaMoure",15,64],["Logan",14,62],["McHenry",9,60],["McIntosh",16,62],["McKenzie",10,54],["McLean",11,58],["Mercer",11,57],["Morton",13,58],["Mountrail",9,56],["Nelson",10,65],["Oliver",12,58],["Pembina",7,67],["Pierce",9,61],["Ramsey",9,64],["Ransom",15,66],["Renville",7,58],["Richland",15,68],["Rolette",7,62],["Sargent",16,66],["Sheridan",11,61],["Sioux",15,59],["Slope",14,53],["Stark",13,55],["Steele",11,66],["Stutsman",13,64],["Towner",7,63],["Traill",11,68],["Walsh",8,66],["Ward",9,58],["Wells",11,62],["Williams",8,54]],
+"NE":[["Adams",34,64],["Antelope",28,65],["Arthur",30,56],["Banner",30,52],["Blaine",29,61],["Boone",30,65],["Box Butte",28,53],["Boyd",26,64],["Brown",27,61],["Buffalo",33,63],["Burt",30,68],["Butler",32,67],["Cass",32,70],["Cedar",27,67],["Chase",33,56],["Cherry",27,58],["Cheyenne",31,53],["Clay",34,65],["Colfax",30,67],["Cuming",29,68],["Custer",31,61],["Dakota",28,69],["Dawes",26,53],["Dawson",33,61],["Deuel",31,55],["Dixon",27,68],["Dodge",31,68],["Douglas",30,69],["Dundy",35,56],["Fillmore",34,66],["Franklin",35,63],["Frontier",34,59],["Furnas",35,61],["Gage",35,68],["Garden",30,55],["Garfield",29,63],["Gosper",34,61],["Grant",29,56],["Greeley",30,64],["Hall",33,64],["Hamilton",33,65],["Harlan",35,62],["Hayes",34,58],["Hitchcock",35,58],["Holt",28,63],["Hooker",29,58],["Howard",32,64],["Jefferson",35,67],["Johnson",34,69],["Kearney",34,63],["Keith",31,56],["Keya Paha",26,61],["Kimball",31,51],["Knox",27,66],["Lancaster",33,68],["Lincoln",32,59],["Logan",30,59],["Loup",29,62],["Madison",29,66],["McPherson",30,58],["Merrick",32,65],["Morrill",29,53],["Nance",31,65],["Nemaha",34,70],["Nuckolls",35,65],["Otoe",33,70],["Pawnee",35,70],["Perkins",32,56],["Phelps",34,62],["Pierce",28,66],["Platte",30,66],["Polk",32,66],["Red Willow",35,59],["Richardson",35,71],["Rock",28,62],["Saline",34,67],["Sarpy",31,69],["Saunders",32,69],["Scotts Bluff",29,52],["Seward",33,67],["Sheridan",27,55],["Sherman",32,63],["Sioux",27,52],["Stanton",29,67],["Thayer",35,66],["Thomas",29,59],["Thurston",29,69],["Valley",30,63],["Washington",31,70],["Wayne",28,67],["Webster",35,64],["Wheeler",29,64],["York",33,66]],
+"NH":[["Belknap",17,127],["Carroll",15,127],["Cheshire",19,126],["Coos",13,126],["Grafton",16,126],["Hillsborough",19,127],["Merrimack",18,127],["Rockingham",18,128],["Strafford",17,128],["Sullivan",18,125]],
+"NJ":[["Atlantic",31,123],["Bergen",26,123],["Burlington",30,122],["Camden",31,122],["Cape May",33,122],["Cumberland",32,122],["Essex",26,122],["Gloucester",33,123],["Hudson",28,123],["Hunterdon",28,121],["Mercer",30,121],["Middlesex",29,122],["Monmouth",29,123],["Morris",25,120],["Ocean",30,123],["Passaic",24,120],["Salem",31,121],["Somerset",28,122],["Sussex",26,121],["Union",25,125],["Warren",27,121]],
+"NM":[["Bernalillo",50,42],["Catron",53,37],["Chaves",56,47],["Cibola",50,39],["Colfax",46,48],["Curry",53,51],["De Baca",53,48],["Do\u00f1a Ana",59,41],["Eddy",59,48],["Grant",57,37],["Guadalupe",51,47],["Harding",48,50],["Hidalgo",60,35],["Lea",58,50],["Lincoln",55,45],["Los Alamos",48,43],["Luna",59,38],["McKinley",48,38],["Mora",48,47],["Otero",58,44],["Quay",51,50],["Rio Arriba",45,43],["Roosevelt",54,50],["San Juan",45,38],["San Miguel",49,47],["Sandoval",48,42],["Santa Fe",49,44],["Sierra",56,40],["Socorro",54,41],["Taos",46,45],["Torrance",52,44],["Union",46,51],["Valencia",51,42]],
+"NV":[["Carson City",31,12],["Churchill",31,15],["Clark",43,21],["Douglas",32,12],["Elko",27,24],["Esmeralda",37,16],["Eureka",30,21],["Humboldt",25,17],["Lander",30,19],["Lincoln",39,22],["Lyon",32,13],["Mineral",34,14],["Nye",36,19],["Pershing",28,16],["Storey",30,12],["Washoe",26,13],["White Pine",33,24]],
+"NY":[["Albany",21,122],["Allegany",24,113],["Bronx",25,121],["Broome",23,118],["Cattaraugus",25,111],["Cayuga",20,115],["Chautauqua",25,110],["Chemung",24,116],["Chenango",22,118],["Clinton",14,121],["Columbia",22,123],["Cortland",22,117],["Delaware",23,120],["Dutchess",23,122],["Erie",23,111],["Essex",16,121],["Franklin",15,120],["Fulton",20,120],["Genesee",22,112],["Greene",22,122],["Hamilton",18,120],["Herkimer",19,119],["Jefferson",18,116],["Kings",26,124],["Lewis",18,118],["Livingston",23,113],["Madison",21,118],["Monroe",21,113],["Montgomery",20,121],["Nassau",27,124],["New York",27,123],["Niagara",22,110],["Oneida",20,118],["Onondaga",21,116],["Ontario",23,114],["Orange",25,122],["Orleans",21,112],["Oswego",20,116],["Otsego",22,119],["Putnam",25,123],["Queens",28,124],["Rensselaer",20,123],["Richmond",29,124],["Rockland",25,124],["Saratoga",19,122],["Schenectady",20,122],["Schoharie",21,121],["Schuyler",23,115],["Seneca",22,115],["St. Lawrence",16,118],["Steuben",24,114],["Suffolk",26,126],["Sullivan",24,121],["Tioga",24,117],["Tompkins",23,116],["Ulster",24,122],["Warren",18,121],["Washington",19,123],["Wayne",21,114],["Westchester",27,122],["Wyoming",23,112],["Yates",22,114]],
+"OH":[["Adams",37,101],["Allen",32,98],["Ashland",30,103],["Ashtabula",27,107],["Athens",35,105],["Auglaize",32,99],["Belmont",33,107],["Brown",28,91],["Butler",35,97],["Carroll",31,106],["Champaign",29,97],["Clark",34,100],["Clermont",37,100],["Clinton",34,99],["Columbiana",30,107],["Coshocton",32,104],["Crawford",31,102],["Cuyahoga",28,105],["Darke",34,98],["Defiance",30,98],["Delaware",33,102],["Erie",27,101],["Fairfield",34,103],["Fayette",32,102],["Franklin",34,102],["Fulton",29,99],["Gallia",37,104],["Geauga",28,106],["Greene",35,100],["Guernsey",33,106],["Hamilton",36,100],["Hancock",30,100],["Hardin",31,99],["Harrison",32,106],["Henry",28,98],["Highland",36,101],["Hocking",35,103],["Holmes",31,104],["Huron",30,102],["Jackson",36,103],["Jefferson",32,107],["Knox",32,103],["Lake",27,105],["Lawrence",38,104],["Licking",33,103],["Logan",32,100],["Lorain",29,103],["Lucas",28,100],["Madison",34,101],["Mahoning",29,107],["Marion",32,101],["Medina",29,104],["Meigs",36,105],["Mercer",28,102],["Miami",31,101],["Monroe",31,110],["Montgomery",35,99],["Morgan",33,104],["Morrow",28,103],["Muskingum",30,109],["Noble",28,104],["Ottawa",28,101],["Paulding",27,96],["Perry",34,104],["Pickaway",35,102],["Pike",35,101],["Portage",29,106],["Preble",35,98],["Putnam",30,99],["Richland",31,103],["Ross",36,102],["Sandusky",29,101],["Scioto",37,103],["Seneca",30,101],["Shelby",33,99],["Stark",30,106],["Summit",29,105],["Trumbull",28,107],["Tuscarawas",31,105],["Union",33,101],["Van Wert",31,98],["Vinton",35,104],["Warren",36,99],["Washington",34,105],["Wayne",30,104],["Williams",29,98],["Wood",29,100],["Wyandot",29,102]],
+"OK":[["Adair",49,74],["Alfalfa",46,64],["Atoka",54,70],["Beaver",46,59],["Beckham",51,60],["Blaine",49,64],["Bryan",55,69],["Caddo",51,64],["Canadian",50,65],["Carter",54,67],["Cherokee",49,73],["Choctaw",55,71],["Cimarron",46,53],["Cleveland",51,67],["Coal",53,69],["Comanche",53,64],["Cotton",54,64],["Craig",46,72],["Creek",49,69],["Custer",50,62],["Delaware",47,73],["Dewey",49,62],["Ellis",48,60],["Garfield",47,65],["Garvin",53,67],["Grady",52,65],["Grant",47,66],["Greer",52,61],["Harmon",53,60],["Harper",46,61],["Haskell",51,72],["Hughes",52,69],["Jackson",53,61],["Jefferson",55,65],["Johnston",54,68],["Kay",46,67],["Kingfisher",49,65],["Kiowa",52,62],["Latimer",52,72],["Le Flore",52,74],["Lincoln",50,68],["Logan",49,66],["Love",55,67],["Major",48,64],["Marshall",55,68],["Mayes",48,72],["McClain",52,66],["McCurtain",55,73],["McIntosh",51,71],["Murray",53,66],["Muskogee",50,72],["Noble",46,66],["Nowata",46,71],["Okfuskee",50,69],["Oklahoma",50,66],["Okmulgee",50,70],["Osage",47,69],["Ottawa",46,73],["Pawnee",48,68],["Payne",47,67],["Pittsburg",52,71],["Pontotoc",53,68],["Pottawatomie",51,68],["Pushmataha",54,72],["Roger Mills",50,60],["Rogers",47,71],["Seminole",50,67],["Sequoyah",50,73],["Stephens",54,65],["Texas",46,56],["Tillman",54,62],["Tulsa",48,70],["Wagoner",49,71],["Washington",46,70],["Washita",51,62],["Woods",46,63],["Woodward",47,62]],
+"OR":[["Baker",15,21],["Benton",12,8],["Clackamas",11,11],["Clatsop",7,9],["Columbia",8,10],["Coos",16,5],["Crook",15,14],["Curry",18,4],["Deschutes",15,12],["Douglas",16,7],["Gilliam",11,16],["Grant",15,18],["Harney",19,17],["Hood River",10,13],["Jackson",19,7],["Jefferson",13,13],["Josephine",18,5],["Klamath",19,10],["Lake",19,13],["Lane",14,9],["Lincoln",11,7],["Linn",12,10],["Malheur",19,20],["Marion",11,10],["Morrow",11,17],["Multnomah",10,10],["Polk",11,8],["Sherman",11,15],["Tillamook",9,8],["Umatilla",11,19],["Union",13,20],["Wallowa",12,22],["Wasco",11,13],["Washington",9,9],["Wheeler",13,15],["Yamhill",10,9]],
+"PA":[["Adams",30,115],["Allegheny",31,109],["Armstrong",29,110],["Beaver",30,108],["Bedford",32,113],["Berks",28,119],["Blair",30,113],["Bradford",25,117],["Bucks",29,121],["Butler",29,109],["Cambria",30,112],["Cameron",27,113],["Carbon",27,119],["Centre",29,113],["Chester",30,120],["Clarion",28,110],["Clearfield",28,112],["Clinton",27,114],["Columbia",27,117],["Crawford",27,108],["Cumberland",31,116],["Dauphin",29,118],["Delaware",29,119],["Elk",27,112],["Erie",26,108],["Fayette",32,110],["Forest",27,110],["Franklin",28,115],["Fulton",32,114],["Greene",33,109],["Huntingdon",29,114],["Indiana",30,111],["Jefferson",28,111],["Juniata",29,115],["Lackawanna",24,118],["Lancaster",29,117],["Lawrence",29,108],["Lebanon",30,118],["Lehigh",27,120],["Luzerne",27,118],["Lycoming",27,116],["McKean",26,112],["Mercer",28,108],["Mifflin",28,114],["Monroe",26,119],["Montgomery",30,119],["Montour",26,116],["Northampton",28,120],["Northumberland",28,117],["Perry",30,116],["Philadelphia",29,120],["Pike",26,120],["Potter",26,113],["Schuylkill",28,118],["Snyder",29,116],["Somerset",32,112],["Sullivan",26,117],["Susquehanna",25,118],["Tioga",25,115],["Union",28,116],["Venango",28,109],["Warren",26,110],["Washington",32,109],["Wayne",25,119],["Westmoreland",30,110],["Wyoming",26,118],["York",30,117]],
+"RI":[["Bristol",21,128],["Kent",23,128],["Newport",23,129],["Providence",22,128],["Washington",24,128]],
+"SC":[["Abbeville",52,106],["Aiken",54,108],["Allendale",55,109],["Anderson",51,105],["Bamberg",55,110],["Barnwell",54,110],["Beaufort",57,112],["Berkeley",54,113],["Calhoun",56,112],["Charleston",55,113],["Cherokee",52,111],["Chester",50,109],["Chesterfield",50,112],["Clarendon",53,112],["Colleton",56,111],["Darlington",52,112],["Dillon",50,114],["Dorchester",55,112],["Edgefield",52,109],["Fairfield",51,109],["Florence",51,113],["Georgetown",53,115],["Greenville",50,106],["Greenwood",52,107],["Hampton",56,110],["Horry",51,115],["Jasper",57,111],["Kershaw",52,110],["Lancaster",50,110],["Laurens",51,107],["Lee",51,112],["Lexington",54,109],["Marion",51,114],["Marlboro",50,113],["McCormick",53,107],["Newberry",51,108],["Oconee",50,104],["Orangeburg",54,111],["Pickens",50,105],["Richland",54,112],["Saluda",52,108],["Spartanburg",49,107],["Sumter",51,111],["Union",50,108],["Williamsburg",53,114],["York",49,109]],
+"SD":[["Aurora",23,64],["Beadle",21,65],["Bennett",25,57],["Bon Homme",26,66],["Brookings",21,68],["Brown",17,65],["Brule",23,63],["Buffalo",22,63],["Butte",19,53],["Campbell",17,61],["Charles Mix",24,63],["Clark",20,66],["Clay",26,68],["Codington",19,67],["Corson",17,58],["Custer",23,53],["Davison",25,64],["Day",18,66],["Deuel",20,69],["Dewey",19,59],["Douglas",24,65],["Edmunds",18,63],["Fall River",24,52],["Faulk",19,63],["Grant",19,68],["Gregory",25,63],["Haakon",21,57],["Hamlin",20,67],["Hand",21,63],["Hanson",24,66],["Harding",17,53],["Hughes",21,61],["Hutchinson",25,66],["Hyde",21,62],["Jackson",23,57],["Jerauld",22,64],["Jones",22,59],["Kingsbury",21,67],["Lake",22,67],["Lawrence",21,52],["Lincoln",25,68],["Lyman",23,61],["Marshall",17,66],["McCook",24,67],["McPherson",17,63],["Meade",20,55],["Mellette",24,59],["Miner",22,66],["Minnehaha",24,68],["Moody",22,69],["Oglala Lakota",24,55],["Pennington",22,54],["Perkins",17,55],["Potter",19,61],["Roberts",17,68],["Sanborn",22,65],["Spink",19,65],["Stanley",21,59],["Sully",20,61],["Todd",25,59],["Tripp",25,61],["Turner",25,67],["Union",26,69],["Walworth",18,61],["Yankton",26,67],["Ziebach",19,57]],
+"TN":[["Anderson",46,101],["Bedford",51,93],["Benton",48,91],["Bledsoe",48,98],["Blount",48,102],["Bradley",50,99],["Campbell",45,101],["Cannon",49,95],["Carroll",48,90],["Carter",45,106],["Cheatham",53,88],["Chester",50,89],["Claiborne",53,110],["Clay",46,97],["Cocke",47,104],["Coffee",49,96],["Crockett",49,88],["Cumberland",47,99],["Davidson",47,94],["DeKalb",48,95],["Decatur",50,90],["Dickson",46,91],["Dyer",47,87],["Fayette",51,87],["Fentress",46,99],["Franklin",50,96],["Gibson",48,88],["Giles",50,94],["Grainger",46,102],["Greene",46,104],["Grundy",49,97],["Hamblen",47,98],["Hamilton",53,95],["Hancock",45,103],["Hardeman",51,88],["Hardin",50,91],["Hawkins",45,104],["Haywood",48,87],["Henderson",49,90],["Henry",47,90],["Hickman",47,93],["Houston",47,92],["Humphreys",48,92],["Jackson",50,98],["Jefferson",46,103],["Johnson",45,107],["Knox",54,94],["Lake",48,86],["Lauderdale",49,87],["Lawrence",50,93],["Lewis",49,92],["Lincoln",52,94],["Loudon",48,101],["Macon",54,88],["Madison",49,89],["Marion",51,96],["Marshall",51,91],["Maury",49,93],["McMinn",48,99],["McNairy",51,90],["Meigs",49,99],["Monroe",52,96],["Montgomery",46,92],["Moore",50,95],["Morgan",53,93],["Obion",47,88],["Overton",46,98],["Perry",49,91],["Pickett",45,98],["Polk",50,100],["Putnam",48,96],["Rhea",55,95],["Roane",47,100],["Robertson",46,94],["Rutherford",49,94],["Scott",46,100],["Sequatchie",49,98],["Sevier",47,103],["Shelby",51,86],["Smith",47,96],["Stewart",47,91],["Sullivan",53,111],["Sumner",46,95],["Tipton",50,86],["Trousdale",46,96],["Unicoi",51,110],["Union",47,101],["Van Buren",55,94],["Warren",48,97],["Washington",45,105],["Wayne",50,92],["Weakley",47,89],["White",47,97],["Williamson",48,94],["Wilson",47,95]],
+"TX":[["Anderson",62,71],["Andrews",60,52],["Angelina",64,74],["Aransas",74,67],["Archer",56,63],["Armstrong",52,56],["Atascosa",72,63],["Austin",69,69],["Bailey",54,52],["Bandera",69,61],["Bastrop",68,66],["Baylor",56,61],["Bee",73,65],["Bell",65,66],["Bexar",70,63],["Blanco",67,63],["Borden",59,55],["Bosque",62,66],["Bowie",57,74],["Brazoria",71,72],["Brazos",66,69],["Brewster",68,50],["Briscoe",53,56],["Brooks",78,64],["Brown",62,62],["Burleson",67,68],["Burnet",66,64],["Caldwell",69,66],["Calhoun",73,68],["Callahan",61,61],["Cameron",81,66],["Camp",60,72],["Carson",50,56],["Cass",58,75],["Castro",53,54],["Chambers",69,74],["Cherokee",62,72],["Childress",53,59],["Clay",56,64],["Cochran",56,52],["Coke",62,58],["Coleman",62,61],["Collin",58,69],["Collingsworth",52,59],["Colorado",70,69],["Comal",69,64],["Comanche",62,63],["Concho",64,59],["Cooke",56,67],["Coryell",64,65],["Cottle",55,59],["Crane",63,52],["Crockett",65,55],["Crosby",56,56],["Culberson",63,47],["Dallam",47,53],["Dallas",59,68],["Dawson",59,54],["DeWitt",71,66],["Deaf Smith",51,53],["Delta",57,71],["Denton",58,67],["Dickens",56,57],["Dimmit",73,59],["Donley",52,57],["Duval",76,63],["Eastland",61,62],["Ector",62,52],["Edwards",68,58],["El Paso",61,42],["Ellis",61,68],["Erath",61,64],["Falls",64,68],["Fannin",57,70],["Fayette",69,68],["Fisher",59,58],["Floyd",55,56],["Foard",55,60],["Fort Bend",70,71],["Franklin",58,72],["Freestone",63,70],["Frio",72,61],["Gaines",59,52],["Galveston",70,73],["Garza",58,56],["Gillespie",67,62],["Glasscock",62,55],["Goliad",73,66],["Gonzales",70,66],["Gray",50,58],["Grayson",56,68],["Gregg",60,73],["Grimes",67,70],["Guadalupe",70,65],["Hale",55,55],["Hall",53,58],["Hamilton",63,64],["Hansford",47,56],["Hardeman",54,60],["Hardin",67,75],["Harris",69,72],["Harrison",60,75],["Hartley",49,53],["Haskell",58,60],["Hays",68,64],["Hemphill",49,59],["Henderson",61,71],["Hidalgo",80,64],["Hill",62,67],["Hockley",56,53],["Hood",60,65],["Hopkins",58,71],["Houston",64,72],["Howard",60,55],["Hudspeth",62,44],["Hunt",58,70],["Hutchinson",49,56],["Irion",64,56],["Jack",58,64],["Jackson",72,68],["Jasper",66,76],["Jeff Davis",65,48],["Jefferson",69,75],["Jim Hogg",78,62],["Jim Wells",76,64],["Johnson",61,66],["Jones",59,60],["Karnes",72,65],["Kaufman",60,69],["Kendall",68,63],["Kenedy",78,65],["Kent",58,57],["Kerr",68,61],["Kimble",66,60],["King",56,59],["Kinney",70,58],["Kleberg",77,65],["Knox",56,60],["La Salle",73,61],["Lamar",56,71],["Lamb",54,53],["Lampasas",64,64],["Lavaca",70,67],["Lee",67,67],["Leon",64,70],["Liberty",68,73],["Limestone",63,69],["Lipscomb",48,59],["Live Oak",74,64],["Llano",66,63],["Loving",61,49],["Lubbock",56,55],["Lynn",57,54],["Madison",65,70],["Marion",59,75],["Martin",60,54],["Mason",66,61],["Matagorda",72,70],["Maverick",72,58],["McCulloch",64,61],["McLennan",63,67],["McMullen",74,63],["Medina",70,61],["Menard",65,60],["Midland",62,54],["Milam",66,67],["Mills",63,63],["Mitchell",60,57],["Montague",56,65],["Montgomery",67,71],["Moore",49,55],["Morris",58,74],["Motley",55,57],["Nacogdoches",63,74],["Navarro",62,69],["Newton",65,75],["Nolan",61,58],["Nueces",76,65],["Ochiltree",47,58],["Oldham",50,53],["Orange",68,76],["Palo Pinto",59,64],["Panola",61,75],["Parker",59,65],["Parmer",53,52],["Pecos",65,51],["Polk",66,73],["Potter",50,55],["Presidio",67,47],["Rains",59,71],["Randall",52,55],["Reagan",63,55],["Real",69,59],["Red River",56,73],["Reeves",63,49],["Refugio",75,66],["Roberts",49,58],["Robertson",65,69],["Rockwall",59,69],["Runnels",62,59],["Rusk",61,73],["Sabine",64,76],["San Augustine",64,75],["San Jacinto",66,72],["San Patricio",74,65],["San Saba",64,62],["Schleicher",65,58],["Scurry",59,57],["Shackelford",59,61],["Shelby",62,75],["Sherman",47,55],["Smith",61,72],["Somervell",61,65],["Starr",79,62],["Stephens",59,62],["Sterling",62,56],["Stonewall",58,59],["Sutton",66,57],["Swisher",53,55],["Tarrant",59,67],["Taylor",61,60],["Terrell",67,53],["Terry",57,53],["Throckmorton",58,61],["Titus",58,73],["Tom Green",63,58],["Travis",67,65],["Trinity",65,73],["Tyler",66,75],["Upshur",59,73],["Upton",63,53],["Uvalde",70,59],["Val Verde",68,56],["Van Zandt",60,71],["Victoria",72,67],["Walker",66,71],["Waller",68,70],["Ward",63,51],["Washington",68,69],["Webb",75,61],["Wharton",71,69],["Wheeler",50,59],["Wichita",55,63],["Wilbarger",55,61],["Willacy",80,65],["Williamson",66,66],["Wilson",71,64],["Winkler",62,51],["Wise",58,66],["Wood",59,72],["Yoakum",57,52],["Young",58,63],["Zapata",78,61],["Zavala",72,59]],
+"UT":[["Beaver",37,27],["Box Elder",27,29],["Cache",27,32],["Carbon",34,34],["Daggett",30,37],["Davis",29,31],["Duchesne",32,35],["Emery",36,34],["Garfield",39,31],["Grand",37,36],["Iron",39,27],["Juab",33,29],["Kane",41,30],["Millard",35,28],["Morgan",29,33],["Piute",38,30],["Rich",27,34],["Salt Lake",30,31],["San Juan",41,35],["Sanpete",35,32],["Sevier",36,31],["Summit",30,34],["Tooele",30,28],["Uintah",33,37],["Utah",32,32],["Wasatch",32,33],["Washington",40,26],["Wayne",38,33],["Weber",28,32]],
+"VA":[["Accomack",37,121],["Albemarle",39,113],["Alexandria",32,118],["Alleghany",39,110],["Amelia",40,116],["Amherst",40,113],["Appomattox",40,114],["Arlington",36,117],["Augusta",36,111],["Bath",37,110],["Bedford",42,112],["Bland",42,108],["Botetourt",40,111],["Bristol",44,106],["Brunswick",45,113],["Buchanan",42,106],["Buckingham",40,112],["Buena Vista",39,112],["Campbell",41,113],["Caroline",36,116],["Carroll",44,109],["Charles City",38,117],["Charlotte",43,114],["Charlottesville",38,114],["Chesapeake",39,122],["Chesterfield",41,117],["Clarke",34,115],["Colonial Heights",41,116],["Covington",48,118],["Craig",43,108],["Culpeper",35,115],["Cumberland",40,115],["Danville",43,113],["Dickenson",42,105],["Dinwiddie",42,116],["Emporia",42,117],["Essex",42,122],["Fairfax",31,113],["Fairfax",31,119],["Falls Church",35,117],["Fauquier",33,114],["Floyd",41,110],["Fluvanna",39,115],["Franklin",42,119],["Franklin",42,111],["Frederick",36,113],["Fredericksburg",32,121],["Galax",43,109],["Giles",40,109],["Gloucester",39,119],["Goochland",39,116],["Grayson",43,107],["Greene",37,114],["Greensville",42,118],["Halifax",42,114],["Hampton",40,120],["Hanover",35,118],["Harrisonburg",37,113],["Henrico",39,117],["Henry",42,110],["Highland",37,111],["Hopewell",40,118],["Isle of Wight",41,119],["James City",38,119],["King George",37,117],["King William",38,118],["King and Queen",37,118],["Lancaster",37,122],["Lee",55,111],["Lexington",38,111],["Loudoun",34,116],["Louisa",38,115],["Lunenburg",42,115],["Lynchburg",41,112],["Madison",33,112],["Manassas",31,114],["Manassas Park",35,116],["Martinsville",43,111],["Mathews",39,120],["Mecklenburg",41,114],["Middlesex",35,122],["Montgomery",41,109],["Nelson",46,119],["New Kent",36,120],["Newport News",38,120],["Norfolk",40,121],["Northampton",39,121],["Northumberland",36,118],["Norton",43,104],["Nottoway",45,116],["Orange",37,115],["Page",36,114],["Patrick",43,110],["Petersburg",40,117],["Pittsylvania",42,113],["Poquoson",41,121],["Portsmouth",43,118],["Powhatan",37,116],["Prince Edward",41,115],["Prince George",37,120],["Prince William",31,117],["Pulaski",41,108],["Radford",42,109],["Rappahannock",36,115],["Richmond",37,119],["Richmond",38,116],["Roanoke",40,110],["Roanoke",47,117],["Rockbridge",38,112],["Rockingham",39,111],["Russell",45,102],["Salem",41,111],["Scott",44,104],["Shenandoah",35,113],["Smyth",44,105],["Southampton",45,115],["Spotsylvania",39,114],["Stafford",34,118],["Staunton",37,112],["Suffolk",43,121],["Surry",39,118],["Sussex",41,118],["Tazewell",42,107],["Virginia Beach",40,122],["Warren",35,114],["Washington",43,105],["Waynesboro",38,113],["Westmoreland",41,122],["Williamsburg",38,121],["Winchester",34,114],["Wise",42,104],["Wythe",45,109],["York",40,119]],
+"VT":[["Addison",16,123],["Bennington",18,123],["Caledonia",14,125],["Chittenden",15,122],["Essex",13,125],["Franklin",13,123],["Grand Isle",14,122],["Lamoille",14,123],["Orange",16,124],["Orleans",13,124],["Rutland",17,123],["Washington",15,124],["Windham",19,124],["Windsor",17,124]],
+"WA":[["Adams",7,20],["Asotin",10,23],["Benton",9,18],["Chelan",3,17],["Clallam",1,10],["Clark",9,11],["Columbia",9,21],["Cowlitz",7,11],["Douglas",4,19],["Ferry",2,22],["Franklin",8,19],["Garfield",9,22],["Grant",6,19],["Grays Harbor",3,9],["Island",1,13],["Jefferson",2,10],["King",4,14],["Kitsap",3,12],["Kittitas",5,16],["Klickitat",9,15],["Lewis",6,12],["Lincoln",5,21],["Mason",3,11],["Okanogan",1,19],["Pacific",5,9],["Pend Oreille",3,24],["Pierce",5,13],["San Juan",0,12],["Skagit",1,15],["Skamania",8,12],["Snohomish",2,15],["Spokane",6,23],["Stevens",3,23],["Thurston",5,11],["Wahkiakum",6,9],["Walla Walla",9,20],["Whatcom",0,15],["Whitman",8,23],["Yakima",7,15]],
+"WI":[["Adams",22,85],["Ashland",15,82],["Barron",18,80],["Bayfield",14,81],["Brown",21,88],["Buffalo",21,80],["Burnett",16,78],["Calumet",22,88],["Chippewa",19,81],["Clark",20,82],["Columbia",24,86],["Crawford",25,82],["Dane",25,86],["Dodge",24,87],["Door",19,90],["Douglas",14,79],["Dunn",19,80],["Eau Claire",20,81],["Florence",16,87],["Fond du Lac",23,88],["Forest",17,86],["Grant",26,83],["Green",26,85],["Green Lake",23,86],["Iowa",25,84],["Iron",15,83],["Jackson",21,82],["Jefferson",25,87],["Juneau",22,84],["Kenosha",26,89],["Kewaunee",20,89],["La Crosse",22,80],["Lafayette",28,83],["Langlade",18,86],["Lincoln",18,84],["Manitowoc",21,89],["Marathon",19,84],["Marinette",17,88],["Marquette",23,85],["Menominee",19,87],["Milwaukee",24,88],["Monroe",22,83],["Oconto",19,88],["Oneida",17,85],["Outagamie",21,87],["Ozaukee",24,89],["Pepin",20,79],["Pierce",20,78],["Polk",18,78],["Portage",21,85],["Price",17,83],["Racine",25,89],["Richland",24,83],["Rock",26,87],["Rusk",17,81],["Sauk",24,84],["Sawyer",16,81],["Shawano",18,87],["Sheboygan",23,89],["St. Croix",19,78],["Taylor",18,83],["Trempealeau",21,81],["Vernon",24,82],["Vilas",15,85],["Walworth",26,88],["Washburn",16,80],["Washington",23,87],["Waukesha",25,88],["Waupaca",20,86],["Waushara",22,86],["Winnebago",22,87],["Wood",21,84]],
+"WV":[["Barbour",35,110],["Berkeley",31,112],["Boone",39,106],["Braxton",38,109],["Brooke",32,108],["Cabell",38,105],["Calhoun",36,107],["Clay",38,107],["Doddridge",35,108],["Fayette",39,108],["Gilmer",36,108],["Grant",35,112],["Greenbrier",39,109],["Hampshire",34,113],["Hancock",31,108],["Hardy",28,113],["Harrison",35,109],["Jackson",27,97],["Jefferson",33,116],["Kanawha",38,106],["Lewis",36,109],["Lincoln",39,105],["Logan",40,106],["Marion",34,109],["Marshall",33,108],["Mason",27,99],["McDowell",41,107],["Mercer",40,107],["Mineral",34,112],["Mingo",40,105],["Monongalia",32,111],["Monroe",49,114],["Morgan",32,115],["Nicholas",38,108],["Ohio",31,107],["Pendleton",36,112],["Pleasants",29,111],["Pocahontas",38,110],["Preston",34,110],["Putnam",37,105],["Raleigh",39,107],["Randolph",36,110],["Ritchie",35,107],["Roane",37,107],["Summers",40,108],["Taylor",33,110],["Tucker",35,111],["Tyler",34,107],["Upshur",37,108],["Wayne",38,103],["Webster",37,109],["Wetzel",34,108],["Wirt",36,106],["Wood",35,106],["Wyoming",41,106]],
+"WY":[["Albany",29,47],["Big Horn",19,43],["Campbell",21,48],["Carbon",29,44],["Converse",25,48],["Crook",20,50],["Fremont",24,40],["Goshen",28,50],["Hot Springs",22,41],["Johnson",21,46],["Laramie",30,49],["Lincoln",26,35],["Natrona",25,45],["Niobrara",25,50],["Park",19,39],["Platte",28,49],["Sheridan",19,45],["Sublette",24,37],["Sweetwater",28,39],["Teton",20,36],["Uinta",29,35],["Washakie",21,43],["Weston",22,50]]
+};
+
+
+  var STATE_GRID = {"AK":[0,0],"ME":[0,10],"WA":[1,1],"MT":[1,3],"ND":[1,4],"MN":[1,5],"WI":[1,6],"MI":[1,7],"NY":[1,8],"VT":[1,9],"NH":[1,10],"OR":[2,1],"ID":[2,2],"WY":[2,3],"SD":[2,4],"IA":[2,5],"IL":[2,6],"IN":[2,7],"OH":[2,8],"PA":[2,9],"NJ":[2,10],"CT":[2,11],"MA":[1,11],"RI":[2,12],"CA":[3,1],"NV":[3,2],"UT":[3,3],"CO":[3,4],"NE":[3,5],"MO":[3,6],"KY":[3,7],"WV":[3,8],"VA":[3,9],"MD":[3,10],"DE":[3,11],"AZ":[4,2],"NM":[4,3],"KS":[4,5],"AR":[4,6],"TN":[4,7],"NC":[4,9],"OK":[5,4],"LA":[5,6],"MS":[5,7],"AL":[5,8],"GA":[5,9],"SC":[5,10],"TX":[6,4],"FL":[7,9],"HI":[7,0],"DC":[4,10]};
+
+  // ---------- Firebase setup ----------
+  // Google's client-side config for this project — safe to be public in
+  // client code (unlike an API secret/token). Security is handled by
+  // Firestore security rules on the backend, not by hiding this.
+  var firebaseConfig = {
+    apiKey: "AIzaSyCkDuVJ35MIVMzOWgBvv4vzWPIDI-FUI1c",
+    authDomain: "phr933.firebaseapp.com",
+    projectId: "phr933",
+    storageBucket: "phr933.firebasestorage.app",
+    messagingSenderId: "315384569618",
+    appId: "1:315384569618:web:ed5ef66d0e31756c46ddcb"
+  };
+  firebase.initializeApp(firebaseConfig, 'countyMapApp');
+  var db = firebase.app('countyMapApp').firestore();
+  var COLLECTION = 'county_submissions';
+
+  // Drop-in replacement for window.storage, backed by Firestore instead of
+  // Claude's artifact storage. Same method shapes (get/set/delete/list) so
+  // the rest of the app's logic below needs zero changes.
+  var storage = {
+    get: function(key, shared){
+      if(!shared){
+        var v = localStorage.getItem('local:' + key);
+        if(v === null) return Promise.reject(new Error('not found: ' + key));
+        return Promise.resolve({ key: key, value: v });
+      }
+      return db.collection(COLLECTION).doc(key).get().then(function(doc){
+        if(!doc.exists) throw new Error('not found: ' + key);
+        return { key: key, value: doc.data().value };
+      });
+    },
+    set: function(key, value, shared){
+      if(!shared){
+        localStorage.setItem('local:' + key, value);
+        return Promise.resolve({ key: key, value: value });
+      }
+      return db.collection(COLLECTION).doc(key).set({ value: value, t: Date.now() }).then(function(){
+        return { key: key, value: value };
+      });
+    },
+    delete: function(key, shared){
+      if(!shared){
+        localStorage.removeItem('local:' + key);
+        return Promise.resolve({ key: key, deleted: true });
+      }
+      return db.collection(COLLECTION).doc(key).delete().then(function(){
+        return { key: key, deleted: true };
+      });
+    },
+    list: function(prefix, shared){
+      return db.collection(COLLECTION).get().then(function(snap){
+        var keys = [];
+        snap.forEach(function(doc){ keys.push(doc.id); });
+        return { keys: keys };
+      });
+    }
+  };
+
+  var sessionId = null;
+  var pollTimer = null;
+  var clearing = false;
+
+  function normalizeKeys(listRes){
+    var arr = Array.isArray(listRes) ? listRes : (listRes && listRes.keys) ? listRes.keys : [];
+    return arr.map(function(k){
+      if(k && typeof k === 'object'){
+        return k.key || k.name || k.id;
+      }
+      return k;
+    }).filter(Boolean);
+  }
+
+  var studentView = document.getElementById('studentView');
+  var teacherView = document.getElementById('teacherView');
+  var tabStudent = document.getElementById('tabStudent');
+  var tabTeacher = document.getElementById('tabTeacher');
+
+  tabStudent.onclick = function(){ switchTab('student'); };
+  tabTeacher.onclick = function(){ switchTab('teacher'); };
+
+  function switchTab(which){
+    if(which === 'student'){
+      studentView.classList.remove('hidden');
+      teacherView.classList.add('hidden');
+      tabStudent.classList.add('active');
+      tabTeacher.classList.remove('active');
+      if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+    } else {
+      studentView.classList.add('hidden');
+      teacherView.classList.remove('hidden');
+      tabTeacher.classList.add('active');
+      tabStudent.classList.remove('active');
+      buildGrid();
+      refreshMap();
+      pollTimer = setInterval(refreshMap, 4000);
+    }
+  }
+
+  // ---------- Student form ----------
+  var stateSelect = document.getElementById('stateSelect');
+  var countySelect = document.getElementById('countySelect');
+  var submitBtn = document.getElementById('submitBtn');
+  var mapMsg = document.getElementById('mapMsg');
+
+  var stateCodes = Object.keys(STATE_NAMES).sort(function(a,b){
+    return STATE_NAMES[a].localeCompare(STATE_NAMES[b]);
+  });
+  var opts = '<option value="">Select your state</option>';
+  for(var i=0;i<stateCodes.length;i++){
+    opts += '<option value="'+stateCodes[i]+'">'+STATE_NAMES[stateCodes[i]]+'</option>';
+  }
+  stateSelect.innerHTML = opts;
+
+  var COUNTY_POS = {};
+  Object.keys(COUNTY_BY_STATE).forEach(function(st){
+    COUNTY_BY_STATE[st].forEach(function(entry){
+      COUNTY_POS[st + '|' + entry[0]] = [entry[1], entry[2]];
+    });
+  });
+
+  stateSelect.onchange = function(){
+    var st = stateSelect.value;
+    if(!st){
+      countySelect.innerHTML = '<option value="">Select a state first</option>';
+      countySelect.disabled = true;
+      submitBtn.disabled = true;
+      return;
+    }
+    var list = COUNTY_BY_STATE[st] || [];
+    var copts = '<option value="">Select your county</option>';
+    for(var j=0;j<list.length;j++){
+      copts += '<option value="'+list[j][0]+'">'+list[j][0]+'</option>';
+    }
+    countySelect.innerHTML = copts;
+    countySelect.disabled = false;
+    submitBtn.disabled = true;
+  };
+  countySelect.onchange = function(){ submitBtn.disabled = !countySelect.value; };
+
+  var formStage = document.getElementById('formStage');
+  var confirmStage = document.getElementById('confirmStage');
+  var confirmPlace = document.getElementById('confirmPlace');
+  var formError = document.getElementById('formError');
+
+  async function initSession(){
+    try{
+      var res = await storage.get('myStudentId', false);
+      if(res && res.value){
+        sessionId = res.value;
+      } else {
+        throw new Error('no stored id');
+      }
+    }catch(e){
+      sessionId = 'r' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      try{
+        await storage.set('myStudentId', sessionId, false);
+      }catch(e2){
+        console.warn('Could not persist student id to private storage; a reload will count as a new response.', e2);
+      }
+    }
+
+    // if this student already submitted, restore the confirmation screen instead of a blank form
+    try{
+      var existing = await storage.get('submissions:' + sessionId, true);
+      if(existing && existing.value){
+        var d = JSON.parse(existing.value);
+        if(d && d.state && d.county){
+          confirmPlace.textContent = d.county + ', ' + (STATE_NAMES[d.state] || d.state);
+          formStage.classList.add('hidden');
+          confirmStage.classList.remove('hidden');
+        }
+      }
+    }catch(e){
+      // no existing submission for this student yet — leave the form showing
+    }
+  }
+  initSession();
+
+  submitBtn.onclick = function(){
+    var st = stateSelect.value;
+    var county = countySelect.value;
+    if(!st || !county) return;
+    formError.textContent = '';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding you...';
+    storage.set('submissions:' + sessionId, JSON.stringify({
+      state: st, county: county, t: Date.now()
+    }), true).then(function(){
+      confirmPlace.textContent = county + ', ' + STATE_NAMES[st];
+      formStage.classList.add('hidden');
+      confirmStage.classList.remove('hidden');
+    }).catch(function(err){
+      console.error('Submit failed', err);
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Add me to the map';
+      formError.textContent = 'Something went wrong submitting your answer. Please try again.';
+    });
+  };
+
+  document.getElementById('changeBtn').onclick = function(){
+    formStage.classList.remove('hidden');
+    confirmStage.classList.add('hidden');
+    submitBtn.disabled = !countySelect.value;
+    submitBtn.textContent = 'Add me to the map';
+  };
+
+  // ---------- Teacher map (tile grid) ----------
+  var gridEl = document.getElementById('stateGrid');
+  var tileEls = {};
+  var stateCountCache = {};
+
+  function lerpColor(t){
+    var stops = [[28,48,73],[244,162,97],[230,57,70]];
+    var a, b, f;
+    if(t <= 0.5){ a = stops[0]; b = stops[1]; f = t*2; }
+    else { a = stops[1]; b = stops[2]; f = (t-0.5)*2; }
+    var r = Math.round(a[0] + (b[0]-a[0])*f);
+    var g = Math.round(a[1] + (b[1]-a[1])*f);
+    var bl = Math.round(a[2] + (b[2]-a[2])*f);
+    return 'rgb(' + r + ',' + g + ',' + bl + ')';
+  }
+
+  function buildGrid(){
+    if(gridEl.children.length) return;
+    var html = '';
+    for(var code in STATE_GRID){
+      var pos = STATE_GRID[code];
+      html += '<div class="tile" id="tile-'+code+'" style="grid-row:'+(pos[0]+1)+';grid-column:'+(pos[1]+1)+'" title="'+STATE_NAMES[code]+'">'+code+'</div>';
+    }
+    gridEl.innerHTML = html;
+    for(var c in STATE_GRID){
+      tileEls[c] = document.getElementById('tile-'+c);
+    }
+  }
+
+  async function refreshMap(){
+    if(clearing) return;
+    try{
+      var listRes = await storage.list('submissions:', true);
+      var keys = normalizeKeys(listRes);
+      var countyCounts = {};
+      var parsedCount = 0;
+      await Promise.all(keys.map(async function(k){
+        try{
+          var r = await storage.get(k, true);
+          if(r && r.value){
+            var d = JSON.parse(r.value);
+            if(!d || !d.state || !d.county) return;
+            var key = d.state + '|' + String(d.county).trim().toLowerCase();
+            if(!countyCounts[key]) countyCounts[key] = {state:d.state, county:String(d.county).trim(), count:0};
+            countyCounts[key].count++;
+            parsedCount++;
+          }
+        }catch(e){}
+      }));
+
+      var stateCounts = {};
+      Object.keys(countyCounts).forEach(function(k){
+        var st = countyCounts[k].state;
+        stateCounts[st] = (stateCounts[st]||0) + countyCounts[k].count;
+      });
+      stateCountCache = stateCounts;
+
+      var maxCount = 1;
+      Object.keys(stateCounts).forEach(function(s){ if(stateCounts[s] > maxCount) maxCount = stateCounts[s]; });
+
+      Object.keys(tileEls).forEach(function(code){
+        var c = stateCounts[code] || 0;
+        tileEls[code].style.background = c === 0 ? '#16273d' : lerpColor(c / maxCount);
+        tileEls[code].title = STATE_NAMES[code] + ' — ' + c + (c===1?' student':' students');
+      });
+
+      document.getElementById('statTotal').textContent = parsedCount;
+      document.getElementById('statStates').textContent = Object.keys(stateCounts).length;
+
+      var sortedCounties = Object.keys(countyCounts)
+        .map(function(k){ return countyCounts[k]; })
+        .sort(function(a,b){ return b.count - a.count; });
+
+      var activeTiles = sortedCounties.map(function(item){
+        var pos = COUNTY_POS[item.state + '|' + item.county];
+        return pos ? {item:item, row:pos[0], col:pos[1]} : null;
+      }).filter(Boolean);
+
+      var maxCountyCount = 1;
+      sortedCounties.forEach(function(item){ if(item.count > maxCountyCount) maxCountyCount = item.count; });
+
+      if(activeTiles.length){
+        var minRow = Math.min.apply(null, activeTiles.map(function(t){return t.row;})) - 1;
+        var maxRow = Math.max.apply(null, activeTiles.map(function(t){return t.row;})) + 1;
+        var minCol = Math.min.apply(null, activeTiles.map(function(t){return t.col;})) - 1;
+        var maxCol = Math.max.apply(null, activeTiles.map(function(t){return t.col;})) + 1;
+        var colSpan = maxCol - minCol + 1;
+        var rowSpan = maxRow - minRow + 1;
+
+        var tilesHtml = activeTiles.map(function(t){
+          var color = lerpColor(t.item.count / maxCountyCount);
+          var gr = t.row - minRow + 1;
+          var gc = t.col - minCol + 1;
+          var tip = t.item.county + ', ' + t.item.state + ' — ' + t.item.count + (t.item.count===1?' student':' students');
+          return '<div class="ctile" style="background:'+color+';grid-row:'+gr+';grid-column:'+gc+'" title="'+tip+'">' + t.item.count + '</div>';
+        }).join('');
+        var gridEl2 = document.getElementById('countyTiles');
+        gridEl2.style.gridTemplateColumns = 'repeat('+colSpan+', 34px)';
+        gridEl2.style.gridTemplateRows = 'repeat('+rowSpan+', 34px)';
+        gridEl2.innerHTML = tilesHtml;
+      } else {
+        document.getElementById('countyTiles').removeAttribute('style');
+        document.getElementById('countyTiles').innerHTML = '<div class="empty">Waiting for responses&hellip;</div>';
+      }
+
+      var rows = sortedCounties
+        .map(function(item){
+          return '<div class="countyrow"><span>'+item.county+'<span class="cstate">'+STATE_NAMES[item.state]+'</span></span><span class="ccount">'+item.count+'</span></div>';
+        }).join('');
+      document.getElementById('countyList').innerHTML = rows || '<div class="empty">Waiting for responses&hellip;</div>';
+      mapMsg.textContent = '';
+    }catch(e){
+      mapMsg.textContent = 'Having trouble loading responses. Retrying...';
+    }
+  }
+
+  // ---------- Download CSV ----------
+  function csvEscape(val){
+    var s = String(val == null ? '' : val);
+    if(/[",\n]/.test(s)){
+      s = '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  document.getElementById('downloadBtn').onclick = async function(){
+    var btn = this;
+    var originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Preparing...';
+    try{
+      var listRes = await storage.list('submissions:', true);
+      var keys = normalizeKeys(listRes);
+      var records = [];
+      await Promise.all(keys.map(async function(k){
+        try{
+          var r = await storage.get(k, true);
+          if(r && r.value){
+            var d = JSON.parse(r.value);
+            if(!d || !d.state || !d.county) return;
+            records.push({
+              submitted: d.t ? new Date(d.t).toLocaleString() : '',
+              state: STATE_NAMES[d.state] || d.state,
+              county: String(d.county).trim()
+            });
+          }
+        }catch(e){}
+      }));
+
+      records.sort(function(a,b){ return a.submitted.localeCompare(b.submitted); });
+
+      var rows = [['Submitted', 'State', 'County']];
+      records.forEach(function(rec){
+        rows.push([rec.submitted, rec.state, rec.county]);
+      });
+      var csvContent = rows.map(function(row){
+        return row.map(csvEscape).join(',');
+      }).join('\r\n');
+
+      var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      var stamp = new Date().toISOString().slice(0,10);
+      a.href = url;
+      a.download = 'home-counties-' + stamp + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      mapMsg.textContent = 'Downloaded ' + records.length + ' response' + (records.length === 1 ? '' : 's') + '.';
+    }catch(e){
+      console.error('CSV download failed', e);
+      mapMsg.textContent = 'Could not prepare the download. Please try again.';
+    }finally{
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  };
+
+  var clearBtn = document.getElementById('clearBtn');
+  var clearBtnDefaultText = clearBtn.textContent;
+  var clearArmed = false;
+  var clearArmTimer = null;
+
+  function disarmClearBtn(){
+    clearArmed = false;
+    if(clearArmTimer){ clearTimeout(clearArmTimer); clearArmTimer = null; }
+    clearBtn.textContent = clearBtnDefaultText;
+    clearBtn.style.background = '';
+    clearBtn.style.color = '';
+    clearBtn.style.borderColor = '';
+  }
+
+  clearBtn.onclick = async function(){
+    if(!clearArmed){
+      clearArmed = true;
+      clearBtn.textContent = 'Tap again to erase everything';
+      clearBtn.style.background = '#e63946';
+      clearBtn.style.color = '#fff';
+      clearBtn.style.borderColor = '#e63946';
+      clearArmTimer = setTimeout(disarmClearBtn, 5000);
+      return;
+    }
+
+    disarmClearBtn();
+    clearBtn.disabled = true;
+    clearing = true;
+    if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+
+    try{
+      var listRes = await storage.list('submissions:', true);
+      var keys = normalizeKeys(listRes);
+      var failures = [];
+
+      await Promise.all(keys.map(function(k){
+        return storage.delete(k, true).catch(function(err){
+          failures.push(k);
+          console.error('Failed to delete', k, err);
+        });
+      }));
+
+      // verify deletion; retry once for anything still present
+      var verifyRes = await storage.list('submissions:', true);
+      var stillThere = normalizeKeys(verifyRes);
+      if(stillThere.length){
+        console.warn('Keys still present after clear, retrying once:', stillThere);
+        await Promise.all(stillThere.map(function(k){
+          return storage.delete(k, true).catch(function(err){
+            failures.push(k);
+            console.error('Retry failed to delete', k, err);
+          });
+        }));
+      }
+
+      if(failures.length){
+        mapMsg.textContent = 'Cleared, but ' + failures.length + ' item(s) could not be deleted (see console).';
+      } else {
+        mapMsg.textContent = '';
+      }
+    }catch(e){
+      console.error('Clear all failed', e);
+      mapMsg.textContent = 'Could not clear responses. Please try again.';
+    }finally{
+      clearing = false;
+      clearBtn.disabled = false;
+      if(!teacherView.classList.contains('hidden')){
+        refreshMap();
+        pollTimer = setInterval(refreshMap, 4000);
+      }
+    }
+  };
+
+})();
+</script>
+</body>
+</html>
