@@ -86,6 +86,7 @@ td.num{text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numer
 /* ---- header right side ---- */
 .topright{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
 .btn.sm{padding:7px 14px;font-size:14px}
+@media print{a.btn{display:none!important}}
 /* ---- gallery: every pair on one page ---- */
 .galgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;margin-top:20px}
 .gcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
@@ -126,7 +127,10 @@ td.num{text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numer
         <div><span class="eyebrow">Correct</span><b class="mono" id="s-brand">0</b></div>
         <div><span class="eyebrow">Product</span><b class="mono" id="s-pos">1/14</b></div>
       </div>
-      <button class="btn ghost sm" id="galbtn">See all pairs</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn ghost sm" id="galbtn">See all pairs</button>
+        <a class="btn ghost sm" href="PHR933_Class9_Cannabis_Themes.html" style="text-decoration:none;display:inline-block">Class 9 student themes &rarr;</a>
+      </div>
     </div>
   </header>
   <div class="bar"><i id="prog"></i></div>
